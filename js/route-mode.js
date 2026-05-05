@@ -107,7 +107,8 @@ async function calculateTrip() {
     // 2. Stops
     const N = Math.min(8, Math.max(4, Math.round(routeData.distance / 100000) + 2));
     state.routeStops = sampleStops(coords, routeData.distance, routeData.duration, departTime, N);
-    state.routeWeather = await fetchMultiPointForecast(state.routeStops, state.currentModel);
+    const responses = await fetchMultiPointForecast(state.routeStops, state.currentModel);
+           state.routeWeather = responses.map(r => r.hourly);
 
     // 3. Reverse geocode
     state.routeStopNames = await Promise.all(state.routeStops.map(async (s, i) => {
