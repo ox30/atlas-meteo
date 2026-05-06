@@ -11,6 +11,7 @@
 <link rel="stylesheet" href="styles/components.css">
 <link rel="stylesheet" href="styles/legend.css">
 <link rel="stylesheet" href="styles/waypoints.css">
+<link rel="stylesheet" href="styles/datetime-picker.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/suncalc/1.9.0/suncalc.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.6/Sortable.min.js"></script>
@@ -55,7 +56,15 @@
           <button class="btn-secondary" id="add-waypoint-btn">+ Ajouter une étape</button>
           <div style="height: 14px"></div>
           <div class="section-label">Heure de départ</div>
-          <input type="datetime-local" id="route-time">
+          <div class="dt-field" id="route-time" tabindex="0" role="button" aria-haspopup="dialog" aria-label="Heure de départ">
+            <span class="dt-field-text placeholder">Sélectionner une date…</span>
+            <span class="dt-field-check" hidden aria-hidden="true">
+              <svg viewBox="0 0 16 16" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 8 7 12 13 4"/></svg>
+            </span>
+            <span class="dt-field-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><line x1="16" y1="3" x2="16" y2="7"/><line x1="8" y1="3" x2="8" y2="7"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            </span>
+          </div>
           <div style="height: 14px"></div>
           <button class="btn" id="calc-btn">Calculer le voyage</button>
         </div>
