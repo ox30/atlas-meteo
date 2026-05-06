@@ -188,9 +188,12 @@ input:focus { outline: none; border-color: var(--accent); }
   color: var(--accent);
   border-color: var(--accent);
 }
-/* Collapsed state: only the header (label + toggle) remains visible. */
-.astro-box.collapsed .astro-section,
-.astro-box.collapsed .astro-warning { display: none; }
+/* Collapsed state: hide the data sections, but the warning stays visible.
+   An alarm should keep grabbing attention even when the user has chosen to
+   compact the box — they can always re-expand to see the contextual data
+   that triggered it. (Previously this was an accident of CSS specificity;
+   now it's intentional.) */
+.astro-box.collapsed .astro-section { display: none; }
 .astro-box.collapsed .astro-header { margin-bottom: 0; }
 @media (prefers-reduced-motion: reduce) {
   .astro-toggle { transition: none; }
