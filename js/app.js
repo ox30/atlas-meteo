@@ -4,6 +4,7 @@ import { state, on } from './state.js';
 import { TimeCtl } from './time-ctl.js';
 import { getMap, invalidateSizeSoon } from './map.js';
 import { buildLegend, initLegendToggle } from './legend.js';
+import { attachDateTimePicker } from './datetime-picker.js';
 import { initMapPicker } from './map-picker.js';
 import { initScrubberHover, clearScrubberContent } from './scrubber.js';
 import { initChart, renderChart } from './chart.js';
@@ -17,6 +18,11 @@ getMap();
 initMapPicker();
 initScrubberHover();
 initChart();
+
+// Custom datetime picker — must be wired BEFORE RouteMode.init() so the
+// setDefaultTime() call inside RouteMode.init() hits our .value setter and
+// the display updates correctly.
+attachDateTimePicker('route-time');
 
 // Init both modes
 CityMode.init();
