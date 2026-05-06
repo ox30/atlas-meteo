@@ -676,3 +676,25 @@ input:focus { outline: none; border-color: var(--accent); }
   letter-spacing: 0.3px;
   margin-top: 1px;
 }
+
+
+/* ============================================================================
+   Lot C fixes : chart empty state
+   ============================================================================ */
+
+/* Empty state inside chart-box (when no chart is selected but timeline is active) */
+.chart-empty {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'JetBrains Mono', monospace; font-size: 11px;
+  color: var(--text-mute); letter-spacing: 0.5px;
+  padding: 0 24px; text-align: center;
+}
+.chart-empty-key {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 18px; height: 18px;
+  background: var(--bg-3); border: 1px solid var(--accent);
+  color: var(--accent); border-radius: 50%;
+  font-weight: 700; font-size: 11px;
+  margin: 0 4px;
+}
