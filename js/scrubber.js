@@ -36,6 +36,12 @@ function setupHover() {
       tooltip.style.display = 'none';
       return;
     }
+    // If hovering over a stop pictogram, defer to its own tooltip
+    if (e.target.closest('.tl-stop-mark, .tl-sun-mark, .tl-pause-icon')) {
+      cursor.style.display = 'none';
+      tooltip.style.display = 'none';
+      return;
+    }
     const rect = tlBar.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const p = Math.max(0, Math.min(1, x / rect.width));

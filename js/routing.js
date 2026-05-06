@@ -150,8 +150,56 @@ export function sampleRouteStops(segments, coords, cumDist, departTime, n) {
       distFromStart: cumPos,
       elapsedSec,
       arrival: new Date(departTime.getTime() + elapsedSec * 1000),
-      idx
+      idx,
+      kind: 'interp'   // interpolated stop (not on a waypoint)
     });
   }
   return stops;
+}
+
+// Build stops that include both interpolated samples AND every waypoint with its
+// arrival/departure times (waypoints with pause have departure = arrival + pauseSec).
+// Returns stops sorted by elapsedSec, deduplicated when an interp stop falls very
+// close to a waypoint stop.
+export function buildRouteStops(segments, coords, cumDist, waypoints, departTime, n) {
+  // 1. Interpolated samples
+  const interp = sampleRouteStops(segments, coords, cumDist, departTime, n);
+  // 2. Waypoint stops (one per waypoint, with arrival = elapsedSec at that waypoint)
+  const drives = segments.filter(s => s.type === 'drive');
+  if (!drives.length) return interp;
+  const wpStops = [];
+  // Departure (waypoint 0): elapsedSec = 0
+  // Subsequent waypoints: elapsedSec = end of leg i = drives[i].endSec
+  // BUT if there's a pause AFTER waypoint i+1, the drive ends at start of pause
+  // We want arrivalSec at waypoint i+1 = end of drive that brought us there
+  // Build a list of (waypointIndex, arrivalElapsedSec)
+  for (let i = 0; i < waypoints.length; i++) {
+    let arrivalSec;
+    if (i === 0) arrivalSec = 0;
+    else if (i - 1 < drives.length) arrivalSec = drives[i - 1].endSec;
+    else arrivalSec = drives[drives.length - 1].endSec;
+    const wp = waypoints[i];
+    const city = wp.city || wp;
+    const pauseSec = (wp.pauseHours || 0) * 3600 + (wp.pauseMinutes || 0) * 60;
+    wpStops.push({
+      lon: city.longitude,
+      lat: city.latitude,
+      distFromStart: i === 0 ? 0 : drives.slice(0, Math.min(i, drives.length)).reduce((s, d) => s + (d.toCum - d.fromCum), 0),
+      elapsedSec: arrivalSec,
+      arrival: new Date(departTime.getTime() + arrivalSec * 1000),
+      kind: 'waypoint',
+      waypointIndex: i,
+      isEndpoint: (i === 0 || i === waypoints.length - 1),
+      name: city.name,
+      pauseSec,
+      pauseDeparture: pauseSec > 0 ? new Date(departTime.getTime() + (arrivalSec + pauseSec) * 1000) : null
+    });
+  }
+  // 3. Merge: drop interp stops too close (in time) to any waypoint stop
+  const PROXIMITY_SEC = 600;  // 10 min
+  const filteredInterp = interp.filter(s =>
+    !wpStops.some(w => Math.abs(w.elapsedSec - s.elapsedSec) < PROXIMITY_SEC)
+  );
+  // 4. Sort all by elapsedSec
+  return [...wpStops, ...filteredInterp].sort((a, b) => a.elapsedSec - b.elapsedSec);
 }

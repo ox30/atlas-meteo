@@ -1,7 +1,7 @@
 import { TimeCtl } from './time-ctl.js';
 import { state, on, newWaypointId } from './state.js';
 import { fetchRoute, computeCumDistances, buildSegments, positionAtTime,
-         sampleRouteStops, findWaypointIndices } from './routing.js';
+         sampleRouteStops, buildRouteStops, findWaypointIndices } from './routing.js';
 import { fetchMultiPointHourly, pickHour } from './weather.js';
 import { reverseGeocode, geocode } from './geocoding.js';
 import { startPicking } from './map-picker.js';
@@ -297,10 +297,10 @@ async function calculateTrip() {
     state.legSegments = built.segments;
     state.totalSec = built.totalSec;
 
-    // 3. Sample stops for weather pictograms (drives only)
+    // 3. Build stops: waypoints (with names + pause info) + interpolated samples
     const N = Math.min(10, Math.max(filled.length, Math.round(routeData.distance / 100000) + 2));
-    state.routeStops = sampleRouteStops(state.legSegments, state.routeCoords, state.cumDistances, departTime, N);
-    console.log('[route] sampled', state.routeStops.length, 'stops along the route');
+    state.routeStops = buildRouteStops(state.legSegments, state.routeCoords, state.cumDistances, state.waypoints, departTime, N);
+    console.log('[route] built', state.routeStops.length, 'stops (waypoints + interp)');
     try {
       state.routeWeather = await fetchMultiPointHourly(state.routeStops, state.currentModel);
       console.log('[route] received weather for', state.routeWeather?.length || 0, 'points');
@@ -309,39 +309,46 @@ async function calculateTrip() {
       state.routeWeather = [];
     }
 
-    // 4. Stop names — instant from waypoints, coords fallback
-    state.routeStopNames = state.routeStops.map((s, i) => {
-      for (const wp of state.waypoints) {
-        const dx = wp.city.latitude - s.lat, dy = wp.city.longitude - s.lon;
-        if (dx*dx + dy*dy < 0.001) return wp.city.name;
-      }
+    // 4. Stop names — waypoint stops have known names, interp use coords as fallback
+    //    (refined in background by reverseGeocode below)
+    state.routeStopNames = state.routeStops.map(s => {
+      if (s.kind === 'waypoint') return s.name;
       return `${s.lat.toFixed(2)}°, ${s.lon.toFixed(2)}°`;
     });
 
     // 5. Render stop markers on the map
     let markersAdded = 0;
     state.routeStops.forEach((s, i) => {
-      // Use weather if available, fallback to a neutral marker
       const wData = state.routeWeather?.[i] || state.routeWeather?.[0];
       const w = wData ? pickHour(wData, s.arrival) : { temp: null, code: null, precip: 0, wind: 0 };
       const cond = w.code != null ? wmo(w.code) : { icon: '📍', label: 'Étape' };
+      // Distinguish waypoints (numbered, larger) from interp stops (weather icon)
+      const isWaypoint = s.kind === 'waypoint';
+      const isPause = isWaypoint && s.pauseSec > 0;
+      let html;
+      if (isWaypoint) {
+        // Numbered waypoint marker; pause-aware visual
+        const wpNum = (s.waypointIndex ?? 0) + 1;
+        const pauseHint = isPause ? '<div style="position:absolute;top:-4px;right:-4px;background:var(--bg-3);border:1px solid var(--accent);border-radius:50%;width:14px;height:14px;font-size:9px;display:flex;align-items:center;justify-content:center">⏸</div>' : '';
+        html = `<div style="position:relative;background:var(--accent);color:var(--bg);border:2px solid var(--bg);width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;box-shadow:0 4px 12px rgba(0,0,0,0.5)">${wpNum}${pauseHint}</div>`;
+      } else {
+        html = `<div style="background:var(--bg);border:1.5px solid var(--accent);width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:17px;box-shadow:0 4px 12px rgba(0,0,0,0.4)">${cond.icon}</div>`;
+      }
       const icon = L.divIcon({
         className: '',
-        html: `<div style="background:var(--bg);border:1.5px solid var(--accent);width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:17px;box-shadow:0 4px 12px rgba(0,0,0,0.4)">${cond.icon}</div>`,
-        iconSize: [34, 34], iconAnchor: [17, 17]
+        html,
+        iconSize: isWaypoint ? [30, 30] : [34, 34],
+        iconAnchor: isWaypoint ? [15, 15] : [17, 17]
       });
-      const m = L.marker([s.lat, s.lon], { icon, zIndexOffset: 500 });
+      const m = L.marker([s.lat, s.lon], { icon, zIndexOffset: isWaypoint ? 600 : 500 });
       if (state.layers.stops) { m.addTo(map); markersAdded++; }
-      m.bindPopup(`
-        <div class="popup-time">${fmtDate(s.arrival)} · ${fmtTime(s.arrival)}</div>
-        <div class="popup-temp">${fmtTemp(w.temp)}C</div>
-        <div class="popup-cond">${cond.icon} ${cond.label}</div>
-        <div style="font-size:11px;color:var(--text-mute);margin-top:6px;font-family:'JetBrains Mono',monospace">
-          ${state.routeStopNames[i]} · Vent ${Math.round(w.wind)} km/h · Précip ${w.precip.toFixed(1)} mm
-        </div>`);
+      m.bindPopup(buildStopPopup(s, i, w, cond));
       _stopMarkers.push(m);
     });
-    console.log('[route] added', markersAdded, '/', state.routeStops.length, 'stop markers (layers.stops =', state.layers.stops, ')');
+    console.log('[route] added', markersAdded, '/', state.routeStops.length, 'stop markers');
+
+    // Refine stop names in background via reverseGeocode (Nominatim, throttled to 1/sec)
+    refineStopNamesInBackground();
 
     // 6. Stats
     const driveSec = state.legSegments.filter(s => s.type === 'drive').reduce((sum, s) => sum + (s.endSec - s.startSec), 0);
@@ -393,6 +400,73 @@ async function calculateTrip() {
   }
 }
 
+// Build the popup HTML for a stop. For waypoints with pause: 2 columns (arrival/departure).
+function buildStopPopup(stop, idx, w, cond) {
+  const name = state.routeStopNames[idx];
+  const isPause = stop.kind === 'waypoint' && stop.pauseSec > 0;
+  if (isPause) {
+    // Get departure weather (after the pause)
+    const wDataDep = state.routeWeather?.[idx];
+    const wDep = wDataDep ? pickHour(wDataDep, stop.pauseDeparture) : { temp: null, code: null, precip: 0, wind: 0 };
+    const condDep = wDep.code != null ? wmo(wDep.code) : { icon: '—', label: '—' };
+    return `
+      <div class="popup-pause">
+        <div class="popup-pause-header">${name} · pause de ${fmtDur(stop.pauseSec)}</div>
+        <div class="popup-pause-cols">
+          <div class="popup-pause-col">
+            <div class="popup-pause-label">ARRIVÉE</div>
+            <div class="popup-time">${fmtTime(stop.arrival)}</div>
+            <div class="popup-temp">${fmtTemp(w.temp)}C</div>
+            <div class="popup-cond">${cond.icon} ${cond.label}</div>
+            <div class="popup-meta">Vent ${Math.round(w.wind)} km/h · Précip ${w.precip.toFixed(1)} mm</div>
+          </div>
+          <div class="popup-pause-col">
+            <div class="popup-pause-label">DÉPART</div>
+            <div class="popup-time">${fmtTime(stop.pauseDeparture)}</div>
+            <div class="popup-temp">${fmtTemp(wDep.temp)}C</div>
+            <div class="popup-cond">${condDep.icon} ${condDep.label}</div>
+            <div class="popup-meta">Vent ${Math.round(wDep.wind)} km/h · Précip ${wDep.precip.toFixed(1)} mm</div>
+          </div>
+        </div>
+      </div>`;
+  }
+  // Standard single-column popup
+  return `
+    <div class="popup-time">${fmtDate(stop.arrival)} · ${fmtTime(stop.arrival)}</div>
+    <div class="popup-temp">${fmtTemp(w.temp)}C</div>
+    <div class="popup-cond">${cond.icon} ${cond.label}</div>
+    <div style="font-size:11px;color:var(--text-mute);margin-top:6px;font-family:'JetBrains Mono',monospace">
+      ${name} · Vent ${Math.round(w.wind)} km/h · Précip ${w.precip.toFixed(1)} mm
+    </div>`;
+}
+
+// Background refinement of stop names: reverseGeocode is throttled to 1/sec by
+// Nominatim policy (handled inside geocoding.js). For each interp stop without
+// a name, request a name and update the popup once received.
+async function refineStopNamesInBackground() {
+  if (!state.routeStops || !_stopMarkers.length) return;
+  const target = state.routeStops;
+  const markers = [..._stopMarkers];
+  for (let i = 0; i < target.length; i++) {
+    if (!_isActive) break;  // user switched modes
+    const s = target[i];
+    if (s.kind !== 'interp') continue;  // already named (waypoint)
+    try {
+      const name = await reverseGeocode(s.lat, s.lon);
+      if (!_isActive || target !== state.routeStops) break;  // route was recalculated
+      state.routeStopNames[i] = name;
+      // Re-bind the popup with the new name
+      const wData = state.routeWeather?.[i] || state.routeWeather?.[0];
+      const w = wData ? pickHour(wData, s.arrival) : { temp: null, code: null, precip: 0, wind: 0 };
+      const cond = w.code != null ? wmo(w.code) : { icon: '📍', label: 'Étape' };
+      markers[i]?.setPopupContent(buildStopPopup(s, i, w, cond));
+    } catch (e) {
+      // silently keep coords as fallback
+    }
+  }
+  console.log('[route] background reverseGeocode pass complete');
+}
+
 function renderScrubberPictograms(departTime) {
   const tlBar = document.getElementById('timeline-bar');
   // Draw pause zones first (background)
@@ -413,15 +487,33 @@ function renderScrubberPictograms(departTime) {
   });
   // Stop pictograms
   state.routeStops.forEach((s, i) => {
-    const isEnd = (i === 0 || i === state.routeStops.length - 1);
-    const w = pickHour(state.routeWeather[i] || state.routeWeather[0], s.arrival);
-    const cond = wmo(w.code);
+    const isWaypoint = s.kind === 'waypoint';
+    const isEndpoint = s.isEndpoint || (isWaypoint && (s.waypointIndex === 0 || s.waypointIndex === state.waypoints.length - 1));
+    const isPause = isWaypoint && s.pauseSec > 0;
+    const wData = state.routeWeather?.[i] || state.routeWeather?.[0];
+    const w = wData ? pickHour(wData, s.arrival) : { temp: null, code: null };
+    const cond = w.code != null ? wmo(w.code) : { icon: '', label: '' };
     const progress = s.elapsedSec / state.totalSec;
     const mark = document.createElement('div');
-    mark.className = 'tl-stop-mark' + (isEnd ? ' endpoint' : '');
+    mark.className = 'tl-stop-mark' + (isEndpoint ? ' endpoint' : '') + (isWaypoint ? ' waypoint' : '');
     mark.style.left = `${progress * 100}%`;
-    mark.innerHTML = isEnd ? '' : cond.icon;
-    mark.innerHTML += `<div class="tl-stop-tip">${fmtTime(s.arrival)} · ${state.routeStopNames[i]} · ${fmtTemp(w.temp)}C</div>`;
+    if (isWaypoint && !isEndpoint) {
+      // Numbered waypoint (intermediate)
+      mark.innerHTML = `${(s.waypointIndex ?? 0) + 1}`;
+      if (isPause) mark.innerHTML += '<span class="tl-stop-pause-dot">⏸</span>';
+    } else if (isEndpoint) {
+      mark.innerHTML = '';
+    } else {
+      mark.innerHTML = cond.icon;
+    }
+    // Tooltip
+    let tipText;
+    if (isPause) {
+      tipText = `${state.routeStopNames[i]} · pause de ${fmtDur(s.pauseSec)} · ${fmtTime(s.arrival)} → ${fmtTime(s.pauseDeparture)}`;
+    } else {
+      tipText = `${fmtTime(s.arrival)} · ${state.routeStopNames[i]} · ${fmtTemp(w.temp)}C`;
+    }
+    mark.innerHTML += `<div class="tl-stop-tip">${tipText}</div>`;
     mark.addEventListener('click', e => {
       e.stopPropagation();
       TimeCtl.pause();

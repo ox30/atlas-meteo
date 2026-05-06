@@ -9,26 +9,33 @@ const CHART_DEFS = {
   radiation:     { label: 'Rayonnement solaire',    unit: 'W/m²', field: 'radiation',   color: '#f4a460', kind: 'area', minSpan: 100 }
 };
 
-// Get hourly source for current mode
-function getHourly() {
+// Get hourly source for a given time t (in route mode, picks closest stop in time)
+function getHourlyAt(t) {
   if (state.mode === 'city') return state.cityHourly;
-  if (state.mode === 'route' && state.routeWeather && state.routeWeather.length) {
-    // Use the middle stop as a representative point for the chart
-    const mid = Math.floor(state.routeWeather.length / 2);
-    return state.routeWeather[mid];
+  if (state.mode === 'route' && state.routeWeather && state.routeWeather.length && state.routeStops?.length) {
+    // Find stop whose arrival is closest to t
+    const tt = t.getTime();
+    let bestIdx = 0, bestDiff = Infinity;
+    for (let i = 0; i < state.routeStops.length; i++) {
+      const d = Math.abs(state.routeStops[i].arrival.getTime() - tt);
+      if (d < bestDiff) { bestDiff = d; bestIdx = i; }
+    }
+    return state.routeWeather[bestIdx] || state.routeWeather[0];
   }
   return null;
 }
 
 // Sample N values along the timeline window
+// Each sample uses the hourly source matching the location of the car at that time
 function sampleSeries(field, samples = 60) {
-  const hourly = getHourly();
-  if (!hourly || !TimeCtl.isInitialized()) return null;
+  if (!TimeCtl.isInitialized()) return null;
   const start = TimeCtl.start, end = TimeCtl.end;
   const span = end - start;
   const data = [];
   for (let i = 0; i < samples; i++) {
     const t = new Date(start.getTime() + (i / (samples-1)) * span);
+    const hourly = getHourlyAt(t);
+    if (!hourly) { data.push({ t, v: 0 }); continue; }
     const w = pickHour(hourly, t);
     const v = w[field];
     data.push({ t, v: v == null ? 0 : v });
@@ -96,7 +103,7 @@ export function renderChart() {
   else if (def.kind === 'area') inner = buildArea(data, w, h, def.color);
   else if (def.kind === 'bars') inner = buildBars(data, w, h, def.color);
   // Current value at TimeCtl.current
-  const hourly = getHourly();
+  const hourly = getHourlyAt(TimeCtl.current);
   const cur = hourly ? pickHour(hourly, TimeCtl.current)[def.field] : null;
   const curStr = cur != null ? `${Math.round(cur*10)/10} ${def.unit}` : '—';
   box.innerHTML = `
