@@ -42,31 +42,52 @@
         <div id="city-data"></div>
       </div>
       <div class="section-mode" id="mode-route">
-        <div class="section-label">Étapes du voyage</div>
-        <div class="waypoints-list" id="waypoints-list"></div>
-        <button class="btn-secondary" id="add-waypoint-btn">+ Ajouter une étape</button>
-        <div style="height: 14px"></div>
-        <div class="section-label">Heure de départ</div>
-        <input type="datetime-local" id="route-time">
-        <div style="height: 14px"></div>
-        <button class="btn" id="calc-btn">Calculer le voyage</button>
-        <div class="route-stats" id="route-stats">
-          <div class="rs-row">
-            <div class="rs-item"><span class="rs-label">Distance</span><span class="rs-value" id="rs-dist">—</span></div>
-            <div class="rs-item"><span class="rs-label">Durée totale</span><span class="rs-value" id="rs-dur">—</span></div>
-          </div>
-          <div style="height: 10px"></div>
-          <div class="rs-row">
-            <div class="rs-item"><span class="rs-label">Arrivée</span><span class="rs-value" id="rs-arr" style="font-size: 16px">—</span></div>
-            <div class="rs-item"><span class="rs-label">Étapes</span><span class="rs-value" id="rs-stops">—</span></div>
+        <div class="route-loader" id="route-loader">
+          <div class="route-loader-inner">
+            <div class="route-loader-spinner"></div>
+            <div class="route-loader-text">Calcul du voyage…</div>
           </div>
         </div>
-        <div class="astro-box" id="astro-box">
-          <div class="section-label" style="margin-bottom: 8px">Astronomie au point courant</div>
-          <div class="astro-row"><span class="lbl">Lever soleil</span><span class="val" id="astro-rise">—</span></div>
-          <div class="astro-row"><span class="lbl">Coucher soleil</span><span class="val" id="astro-set">—</span></div>
-          <div class="astro-row"><span class="lbl">Position soleil</span><span class="val" id="astro-pos">—</span></div>
-          <div class="astro-warning" id="astro-warning" style="display:none"></div>
+
+        <div class="route-panel route-panel-edit is-active" id="route-panel-edit">
+          <div class="section-label">Étapes du voyage</div>
+          <div class="waypoints-list" id="waypoints-list"></div>
+          <button class="btn-secondary" id="add-waypoint-btn">+ Ajouter une étape</button>
+          <div style="height: 14px"></div>
+          <div class="section-label">Heure de départ</div>
+          <input type="datetime-local" id="route-time">
+          <div style="height: 14px"></div>
+          <button class="btn" id="calc-btn">Calculer le voyage</button>
+        </div>
+
+        <div class="route-panel route-panel-play" id="route-panel-play">
+          <div class="play-header">
+            <div class="play-title">Itinéraire</div>
+            <button class="btn-edit-route" id="btn-edit-route" title="Modifier l'itinéraire">✎</button>
+          </div>
+          <div class="play-summary" id="play-summary">—</div>
+          <div class="route-stats visible" id="route-stats">
+            <div class="rs-row">
+              <div class="rs-item"><span class="rs-label">Distance</span><span class="rs-value" id="rs-dist">—</span></div>
+              <div class="rs-item"><span class="rs-label">Durée totale</span><span class="rs-value" id="rs-dur">—</span></div>
+            </div>
+            <div style="height: 10px"></div>
+            <div class="rs-row">
+              <div class="rs-item"><span class="rs-label">Arrivée</span><span class="rs-value" id="rs-arr" style="font-size: 16px">—</span></div>
+              <div class="rs-item"><span class="rs-label">Étapes</span><span class="rs-value" id="rs-stops">—</span></div>
+            </div>
+          </div>
+          <div class="section-label" style="margin-top: 14px">Météo courante</div>
+          <div class="route-current-card" id="route-current-card">
+            <div class="rcc-empty">En attente de la simulation…</div>
+          </div>
+          <div class="astro-box visible" id="astro-box">
+            <div class="section-label" style="margin-bottom: 8px">Astronomie au point courant</div>
+            <div class="astro-row"><span class="lbl">Lever soleil</span><span class="val" id="astro-rise">—</span></div>
+            <div class="astro-row"><span class="lbl">Coucher soleil</span><span class="val" id="astro-set">—</span></div>
+            <div class="astro-row"><span class="lbl">Position soleil</span><span class="val" id="astro-pos">—</span></div>
+            <div class="astro-warning" id="astro-warning" style="display:none"></div>
+          </div>
         </div>
       </div>
     </aside>
