@@ -1,0 +1,243 @@
+/* Atlas Météo — Custom datetime picker
+   ---------------------------------------------------------------------------
+   - .dt-field         : the visible field replacing the native input
+   - .dt-popup         : floating panel with calendar + time wheels + footer
+   All colors use the live --bg/--text/--accent vars so the picker tracks the
+   sun/cycle theme just like the rest of the UI. */
+
+/* ---------- Field ------------------------------------------------------- */
+.dt-field {
+  position: relative;
+  display: flex; align-items: center; gap: 10px;
+  width: 100%;
+  padding: 11px 12px 11px 14px;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  color: var(--text);
+  font-family: 'Manrope', sans-serif;
+  font-size: 14px;
+  cursor: pointer;
+  user-select: none;
+  transition: border-color 0.2s, background var(--transition), color var(--transition);
+}
+.dt-field:hover { border-color: var(--accent); }
+.dt-field:focus,
+.dt-field.dt-field-open { outline: none; border-color: var(--accent); }
+
+.dt-field-text {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dt-field-text.placeholder { color: var(--text-mute); }
+
+/* Validation indicator: filled accent disc, white check */
+.dt-field-check {
+  display: inline-flex;
+  align-items: center; justify-content: center;
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--bg);
+  flex-shrink: 0;
+  transition: background var(--transition);
+}
+.dt-field-check[hidden] { display: none; }
+
+/* Calendar trigger icon — mirrors .btn-secondary text behavior */
+.dt-field-icon {
+  display: inline-flex;
+  align-items: center; justify-content: center;
+  color: var(--text-dim);
+  flex-shrink: 0;
+  transition: color 0.15s;
+}
+.dt-field:hover .dt-field-icon { color: var(--accent); }
+.dt-field.dt-field-open .dt-field-icon { color: var(--accent); }
+
+/* ---------- Popup ------------------------------------------------------- */
+.dt-popup {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0; right: 0;
+  z-index: 1200;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  cursor: default;
+  animation: dtPop 0.18s ease-out;
+}
+@keyframes dtPop {
+  from { transform: translateY(-4px) scale(0.98); opacity: 0; }
+  to   { transform: translateY(0) scale(1); opacity: 1; }
+}
+.dt-popup-inner { padding: 10px 12px 12px; }
+
+/* Calendar header */
+.dt-cal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 4px 2px 8px;
+}
+.dt-cal-month {
+  font-family: 'Manrope', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  text-transform: capitalize;
+  letter-spacing: 0.2px;
+}
+.dt-cal-nav {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-dim);
+  width: 26px; height: 26px;
+  border-radius: 2px;
+  cursor: pointer;
+  font-size: 18px; line-height: 1;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  font-family: 'Manrope', sans-serif;
+}
+.dt-cal-nav:hover { color: var(--accent); border-color: var(--line); background: var(--bg-3); }
+
+/* Day-of-week strip + grid (7 columns) */
+.dt-cal-dow,
+.dt-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+.dt-cal-dow {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-mute);
+  margin-bottom: 4px;
+  padding: 0 2px;
+}
+.dt-cal-dow span {
+  text-align: center;
+  padding: 4px 0;
+}
+
+.dt-cal-grid { padding: 2px; }
+
+.dt-day {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text);
+  padding: 0;
+  height: 30px;
+  border-radius: 2px;
+  cursor: pointer;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+.dt-day:hover { background: var(--bg-3); color: var(--accent); }
+.dt-day.dim   { color: var(--text-mute); }
+.dt-day.today { border-color: var(--line); }
+.dt-day.selected {
+  background: var(--accent);
+  color: var(--bg);
+  font-weight: 700;
+  border-color: var(--accent);
+}
+.dt-day.selected:hover { background: var(--accent-soft); color: var(--bg); }
+
+/* ---------- Time wheels ------------------------------------------------- */
+.dt-wheels {
+  display: flex; align-items: flex-start; justify-content: center;
+  gap: 14px;
+  margin-top: 12px;
+  padding: 12px 0 6px;
+  border-top: 1px solid var(--line-soft);
+}
+.dt-wheel {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 4px;
+}
+.dt-wheel-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-mute);
+  cursor: pointer;
+  font-size: 11px;
+  line-height: 1;
+  padding: 4px 14px;
+  border-radius: 2px;
+  transition: color 0.15s, background 0.15s;
+}
+.dt-wheel-btn:hover { color: var(--accent); background: var(--bg-3); }
+.dt-wheel-btn:active { transform: translateY(1px); }
+
+.dt-wheel-value {
+  width: 60px; height: 48px;
+  background: var(--bg-3);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 24px;
+  font-weight: 500;
+  color: var(--text);
+  cursor: ns-resize;
+  user-select: none;
+  transition: border-color 0.15s;
+}
+.dt-wheel-value:hover,
+.dt-wheel-value:focus { outline: none; border-color: var(--accent); }
+
+.dt-wheel-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: var(--text-mute);
+  margin-top: 4px;
+}
+
+.dt-wheel-sep {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 24px;
+  color: var(--text-mute);
+  /* Vertically align with the value box (button ~22px + 4px gap = 26px to align) */
+  margin-top: 26px;
+  user-select: none;
+}
+
+/* ---------- Footer buttons --------------------------------------------- */
+.dt-footer {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 6px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line-soft);
+  margin-top: 8px;
+}
+.dt-footer-btn {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--text-dim);
+  padding: 8px 4px;
+  border-radius: 2px;
+  cursor: pointer;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  transition: all 0.15s;
+}
+.dt-footer-btn:hover { color: var(--accent); border-color: var(--accent); }
+.dt-footer-btn.dt-confirm {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg);
+  font-weight: 700;
+}
+.dt-footer-btn.dt-confirm:hover { background: var(--accent-soft); border-color: var(--accent-soft); }
