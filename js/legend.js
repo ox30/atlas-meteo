@@ -22,6 +22,15 @@ const RANGE_RADIO_DEFS = [
   { key: 'extended', label: '14 prochains jours' }
 ];
 
+const TABS = [
+  { key: 'layers', label: 'Couches' },
+  { key: 'data',   label: 'Données' },
+  { key: 'chart',  label: 'Graphique' }
+];
+
+// Module-scoped: persists across buildLegend() rebuilds (e.g. mode switch)
+let activeTab = 'layers';
+
 function modelOptions() {
   return MODELS.map(m => `<option value="${m.value}"${m.value === state.currentModel ? ' selected' : ''}>${m.label}</option>`).join('');
 }
@@ -76,25 +85,75 @@ function chartSection() {
   </div>`;
 }
 
-export function buildLegend() {
-  const panel = document.getElementById('legend-panel');
-  panel.innerHTML = `
+function tabsBar() {
+  return `<div class="legend-tabs" role="tablist">
+    ${TABS.map(t => `<button class="legend-tab${t.key === activeTab ? ' active' : ''}" data-tab="${t.key}" role="tab" aria-selected="${t.key === activeTab}">${t.label}</button>`).join('')}
+  </div>`;
+}
+
+function paneLayers() {
+  return `<div class="legend-pane${activeTab === 'layers' ? ' active' : ''}" data-pane="layers">
+    <div class="legend-section">
+      <div class="legend-section-title">Couches affichées</div>
+      ${LAYER_DEFS.map(layerRow).join('')}
+    </div>
+  </div>`;
+}
+
+function paneData() {
+  return `<div class="legend-pane${activeTab === 'data' ? ' active' : ''}" data-pane="data">
     <div class="legend-section">
       <div class="legend-section-title">Modèle météo</div>
       <select class="legend-model-select" id="legend-model">${modelOptions()}</select>
     </div>
     ${rangeSection()}
-    <div class="legend-section">
-      <div class="legend-section-title">Couches affichées</div>
-      ${LAYER_DEFS.map(layerRow).join('')}
-    </div>
     ${densitySection()}
-    ${chartSection()}`;
+  </div>`;
+}
 
-  panel.querySelector('#legend-model').addEventListener('change', e => {
-    state.currentModel = e.target.value;
-    emit('modelChange', { model: e.target.value });
+function paneChart() {
+  return `<div class="legend-pane${activeTab === 'chart' ? ' active' : ''}" data-pane="chart">
+    ${chartSection()}
+  </div>`;
+}
+
+export function buildLegend() {
+  const panel = document.getElementById('legend-panel');
+  panel.innerHTML = `
+    ${tabsBar()}
+    <div class="legend-content">
+      ${paneLayers()}
+      ${paneData()}
+      ${paneChart()}
+    </div>`;
+
+  // Tab switching — keep the panel open, just swap pane visibility (no rebuild)
+  panel.querySelectorAll('.legend-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const t = btn.dataset.tab;
+      if (t === activeTab) return;
+      activeTab = t;
+      panel.querySelectorAll('.legend-tab').forEach(b => {
+        const on = b.dataset.tab === t;
+        b.classList.toggle('active', on);
+        b.setAttribute('aria-selected', on ? 'true' : 'false');
+      });
+      panel.querySelectorAll('.legend-pane').forEach(p => {
+        p.classList.toggle('active', p.dataset.pane === t);
+      });
+      // Reset scroll to top of new pane for predictable feel
+      const content = panel.querySelector('.legend-content');
+      if (content) content.scrollTop = 0;
+    });
   });
+
+  const modelSel = panel.querySelector('#legend-model');
+  if (modelSel) {
+    modelSel.addEventListener('change', e => {
+      state.currentModel = e.target.value;
+      emit('modelChange', { model: e.target.value });
+    });
+  }
   panel.querySelectorAll('[data-range]').forEach(row => {
     row.addEventListener('click', () => {
       const r = row.dataset.range;
