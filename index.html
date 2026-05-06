@@ -81,12 +81,23 @@
           <div class="route-current-card" id="route-current-card">
             <div class="rcc-empty">En attente de la simulation…</div>
           </div>
-          <div class="astro-box visible" id="astro-box">
+          <div class="astro-box visible" id="route-astro-box">
             <div class="section-label" style="margin-bottom: 8px">Astronomie au point courant</div>
-            <div class="astro-row"><span class="lbl">Lever soleil</span><span class="val" id="astro-rise">—</span></div>
-            <div class="astro-row"><span class="lbl">Coucher soleil</span><span class="val" id="astro-set">—</span></div>
-            <div class="astro-row"><span class="lbl">Position soleil</span><span class="val" id="astro-pos">—</span></div>
-            <div class="astro-warning" id="astro-warning" style="display:none"></div>
+            <div class="astro-section">
+              <div class="astro-row"><span class="lbl">Lever soleil</span><span class="val astro-sun-rise">—</span></div>
+              <div class="astro-row"><span class="lbl">Coucher soleil</span><span class="val astro-sun-set">—</span></div>
+              <div class="astro-row"><span class="lbl">Position soleil</span><span class="val astro-sun-pos">—</span></div>
+              <div class="astro-row"><span class="lbl">Direction soleil</span><span class="val astro-sun-dir">—</span></div>
+            </div>
+            <div class="astro-section astro-moon-section">
+              <div class="astro-row"><span class="lbl">Phase</span><span class="val astro-moon-phase">—</span></div>
+              <div class="astro-row"><span class="lbl">Illumination</span><span class="val astro-moon-illum">—</span></div>
+              <div class="astro-row"><span class="lbl">Lever lune</span><span class="val astro-moon-rise">—</span></div>
+              <div class="astro-row"><span class="lbl">Coucher lune</span><span class="val astro-moon-set">—</span></div>
+              <div class="astro-row"><span class="lbl">Position lune</span><span class="val astro-moon-pos">—</span></div>
+              <div class="astro-row"><span class="lbl">Direction lune</span><span class="val astro-moon-dir">—</span></div>
+            </div>
+            <div class="astro-warning" style="display:none"></div>
           </div>
         </div>
       </div>
