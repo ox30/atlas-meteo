@@ -417,3 +417,175 @@ input:focus { outline: none; border-color: var(--accent); }
   font-family: 'JetBrains Mono', monospace; font-size: 11px;
   color: var(--accent); pointer-events: none;
 }
+
+
+/* ============================================================================
+   Lot B : Edit / Play sidebar mode for route
+   ============================================================================ */
+
+/* Container — needs relative positioning for absolute panels and loader */
+#mode-route {
+  position: relative;
+  min-height: 380px;          /* ensures the loader has space to overlay */
+}
+
+/* Panels stacked, transitions handled by classes */
+.route-panel {
+  position: relative;
+  transform: translateY(0);
+  opacity: 1;
+  transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1),
+              opacity 0.35s ease;
+  pointer-events: auto;
+}
+.route-panel:not(.is-active) {
+  position: absolute; top: 0; left: 0; right: 0;
+  pointer-events: none;
+  opacity: 0;
+}
+
+/* Edit panel : default visible, slides DOWN when going to play */
+.route-panel-edit:not(.is-active) {
+  transform: translateY(20px);
+}
+
+/* Play panel : enters from BELOW (slides up to position) when becoming active.
+   Default state (not active) is "below" so the entrance is bottom-up. */
+.route-panel-play:not(.is-active) {
+  transform: translateY(20px);
+}
+.route-panel-play.is-active {
+  transform: translateY(0);
+}
+
+/* Loader overlay during route calculation */
+.route-loader {
+  position: absolute; inset: 0; z-index: 100;
+  background: rgba(13, 17, 23, 0.65);
+  backdrop-filter: blur(2px);
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.2s ease;
+  border-radius: 2px;
+}
+#mode-route.is-calculating .route-loader {
+  opacity: 1; pointer-events: auto;
+}
+.route-loader-inner { text-align: center; }
+.route-loader-spinner {
+  width: 40px; height: 40px;
+  border: 3px solid var(--bg-3);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: route-spin 0.8s linear infinite;
+  margin: 0 auto 12px;
+}
+@keyframes route-spin { to { transform: rotate(360deg); } }
+.route-loader-text {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+/* Play panel header with edit-back button */
+.play-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding-bottom: 10px; margin-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+.play-title {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px; letter-spacing: 2px; text-transform: uppercase;
+  color: var(--text-mute);
+}
+.btn-edit-route {
+  width: 32px; height: 32px;
+  background: var(--bg-2); border: 1px solid var(--line);
+  color: var(--text-dim);
+  font-size: 14px; cursor: pointer;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s;
+}
+.btn-edit-route:hover {
+  border-color: var(--accent); color: var(--accent);
+  background: var(--bg-3);
+}
+
+/* Compact summary of the trip in play mode */
+.play-summary {
+  background: var(--bg-2); border: 1px solid var(--line); border-radius: 2px;
+  padding: 12px 14px; margin-bottom: 14px;
+  font-size: 13px; line-height: 1.5;
+  color: var(--text);
+  transition: background var(--transition), border-color var(--transition);
+}
+.play-summary .ps-step {
+  font-family: 'Instrument Serif', serif;
+  font-size: 16px; color: var(--text);
+}
+.play-summary .ps-arrow {
+  display: inline-block; margin: 0 6px;
+  color: var(--accent);
+  font-family: 'JetBrains Mono', monospace; font-size: 11px;
+}
+.play-summary .ps-pause {
+  display: inline-block; margin: 0 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; color: var(--text-mute);
+  background: var(--bg-3); padding: 1px 6px; border-radius: 1em;
+  letter-spacing: 0.5px;
+}
+
+/* Current weather card in route mode (mirrors .current-card layout) */
+.route-current-card {
+  background: var(--bg-2); border: 1px solid var(--line); border-radius: 2px;
+  padding: 18px; margin-bottom: 14px; position: relative; overflow: hidden;
+  transition: background var(--transition), border-color var(--transition);
+}
+.route-current-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0;
+  height: 2px; background: linear-gradient(90deg, var(--accent), transparent);
+}
+.rcc-empty {
+  color: var(--text-mute); font-size: 13px; text-align: center;
+  padding: 24px 0;
+}
+.rcc-loc {
+  font-family: 'Instrument Serif', serif; font-size: 19px;
+  letter-spacing: -0.3px; margin-bottom: 2px; color: var(--text);
+}
+.rcc-status {
+  font-family: 'JetBrains Mono', monospace; font-size: 10px;
+  letter-spacing: 1.5px; text-transform: uppercase;
+  color: var(--accent); margin-bottom: 12px;
+}
+.rcc-status.is-paused { color: var(--warm); }
+.rcc-row {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 12px;
+}
+.rcc-temp {
+  font-family: 'Instrument Serif', serif;
+  font-size: 48px; line-height: 1; font-weight: 400;
+}
+.rcc-temp .unit { font-size: 18px; color: var(--text-dim); margin-left: 3px; }
+.rcc-icon { font-size: 32px; }
+.rcc-label {
+  font-size: 11px; color: var(--text-dim); text-align: right; margin-top: 4px;
+}
+.rcc-meta {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px;
+  padding-top: 12px; border-top: 1px solid var(--line);
+}
+.rcc-meta-item { display: flex; flex-direction: column; gap: 2px; }
+.rcc-meta-label {
+  font-family: 'JetBrains Mono', monospace; font-size: 9px;
+  letter-spacing: 1px; text-transform: uppercase; color: var(--text-mute);
+}
+.rcc-meta-value {
+  font-family: 'JetBrains Mono', monospace; font-size: 13px;
+  color: var(--text); font-weight: 500;
+}
