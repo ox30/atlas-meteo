@@ -11,6 +11,7 @@ import { RANGE_MODES, wmo } from './config.js';
 import { fmtTime, fmtDate, toast } from './utils.js';
 import { clearScrubberContent, setWeatherProvider, clearWeatherProvider, setSummaryContent } from './scrubber.js';
 import { renderChart } from './chart.js';
+import { updateAstroBox } from './astro-ui.js';
 
 let _cityMarker = null;
 let _isActive = false;
@@ -73,10 +74,13 @@ export function init() {
       _zoomedDay = null;
       document.querySelectorAll('.tl-sun-mark').forEach(el => el.remove());
       applyDayNightGradient(null);
-      clearRetourSummary();
       const layer = document.getElementById('day-frame-layer');
       const f = layer && layer.querySelector('.day-frame.pin-frame');
-      if (f) f.classList.remove('zoomed', 'loading');
+      if (f) {
+        f.classList.remove('zoomed', 'loading');
+        const btn = f.querySelector('.day-frame-zoom-btn');
+        if (btn) btn.title = 'Voir le détail du jour';
+      }
     }
     setupRange();
     _lastSidebarHour = null;       // force re-render of sidebar
@@ -126,7 +130,6 @@ export function deactivate() {
   resetTheme();
   clearWeatherProvider();
   clearScrubberContent();
-  clearRetourSummary();
   // Day-frame teardown
   _hoveredDay = null;
   _pinnedDay = null;
@@ -151,7 +154,6 @@ async function loadCity(city, seekTime = null) {
   _isAnimatingZoom = false;
   document.querySelectorAll('.tl-sun-mark').forEach(el => el.remove());
   applyDayNightGradient(null);
-  clearRetourSummary();
   const map = getMap();
   invalidateSizeSoon();
   map.setView([city.latitude, city.longitude], 9);
@@ -231,12 +233,19 @@ function onTick({ time, progress }) {
   document.getElementById('clock-time').textContent = fmtTime(time);
   document.getElementById('clock-meta').textContent = fmtDate(time);
   document.getElementById('timeline-fill').style.width = `${progress*100}%`;
-  // The scrubber summary is owned by the retour button while zoomed; don't
-  // overwrite it with the weather pill in that case.
-  if (state.cityHourly && !_zoomedDay) {
+  // The weather pill in the scrubber summary stays live in all modes — even
+  // while zoomed, it now reflects the weather at the cursor's hour, which is
+  // exactly what the user wants when scrubbing through a single day.
+  if (state.cityHourly) {
     const w = pickHour(state.cityHourly, time);
     const cond = wmo(w.code);
     setSummaryContent(`<strong>${cond.icon} ${cond.label}</strong>`);
+  }
+  // Astro box: refresh on every tick (altitude / azimuth / phase change
+  // continuously as the cursor moves; rise/set times can flip when the
+  // cursor crosses local midnight in week/extended modes).
+  if (state.city) {
+    updateAstroBox('city-astro-box', time, state.city.latitude, state.city.longitude);
   }
 }
 
@@ -254,6 +263,23 @@ function renderSidebarShell(time) {
   const titleN = r.daysShown;
   const html = `
     <div id="cur-card-host"></div>
+    <div class="astro-box visible" id="city-astro-box">
+      <div class="section-label" style="margin-bottom: 8px">Astronomie</div>
+      <div class="astro-section">
+        <div class="astro-row"><span class="lbl">Lever soleil</span><span class="val astro-sun-rise">—</span></div>
+        <div class="astro-row"><span class="lbl">Coucher soleil</span><span class="val astro-sun-set">—</span></div>
+        <div class="astro-row"><span class="lbl">Position soleil</span><span class="val astro-sun-pos">—</span></div>
+        <div class="astro-row"><span class="lbl">Direction soleil</span><span class="val astro-sun-dir">—</span></div>
+      </div>
+      <div class="astro-section astro-moon-section">
+        <div class="astro-row"><span class="lbl">Phase</span><span class="val astro-moon-phase">—</span></div>
+        <div class="astro-row"><span class="lbl">Illumination</span><span class="val astro-moon-illum">—</span></div>
+        <div class="astro-row"><span class="lbl">Lever lune</span><span class="val astro-moon-rise">—</span></div>
+        <div class="astro-row"><span class="lbl">Coucher lune</span><span class="val astro-moon-set">—</span></div>
+        <div class="astro-row"><span class="lbl">Position lune</span><span class="val astro-moon-pos">—</span></div>
+        <div class="astro-row"><span class="lbl">Direction lune</span><span class="val astro-moon-dir">—</span></div>
+      </div>
+    </div>
     <div class="range-quick-row">
       <button class="range-quick${state.rangeMode === 'week' ? ' active' : ''}" data-quick="week">7 prochains jours</button>
       <button class="range-quick${state.rangeMode === 'extended' ? ' active' : ''}" data-quick="extended">14 prochains jours</button>
@@ -277,6 +303,11 @@ function renderSidebarShell(time) {
   });
   renderForecastGrid(days, time);
   updateCurrentCard(time);
+  // Populate the freshly-rebuilt astro-box right away — the next onTick is
+  // close, but we don't want '—' flashing until then.
+  if (state.city) {
+    updateAstroBox('city-astro-box', time, state.city.latitude, state.city.longitude);
+  }
 }
 
 // Just refresh the current card values without rebuilding the rest
@@ -286,25 +317,8 @@ function updateCurrentCard(time) {
   const c = state.city;
   const host = document.getElementById('cur-card-host');
   if (!host) return;
-  // When zoomed on a single day, surface a few extra fields the regular card
-  // doesn't show (wind direction, cloud cover, sunrise/sunset for that day).
-  // These are already loaded — see fetchCityForecast — so it's free.
-  let extraMeta = '';
-  if (_zoomedDay && state.cityDaily) {
-    const idx = state.cityDaily.time.findIndex(t => sameDay(new Date(t), _zoomedDay));
-    let sunriseStr = '—', sunsetStr = '—';
-    if (idx >= 0) {
-      try {
-        sunriseStr = fmtTime(new Date(state.cityDaily.sunrise[idx]));
-        sunsetStr  = fmtTime(new Date(state.cityDaily.sunset[idx]));
-      } catch (_) { /* leave as em-dash */ }
-    }
-    extraMeta = `
-      <div class="meta-item"><span class="meta-label">Direction</span><span class="meta-value">${formatWindDir(w.windDir)}</span></div>
-      <div class="meta-item"><span class="meta-label">Nuages</span><span class="meta-value">${w.cloudCover != null ? w.cloudCover + '%' : '—'}</span></div>
-      <div class="meta-item"><span class="meta-label">Lever</span><span class="meta-value">${sunriseStr}</span></div>
-      <div class="meta-item"><span class="meta-label">Coucher</span><span class="meta-value">${sunsetStr}</span></div>`;
-  }
+  // Six metas, always — the user wants a stable card across modes (zoom or
+  // not). Sunrise / sunset moved out to the astro-box where they belong.
   host.innerHTML = `
     <div class="current-card">
       <div class="current-loc">${c.name}${c.country?', '+c.country:''}</div>
@@ -320,8 +334,9 @@ function updateCurrentCard(time) {
         <div class="meta-item"><span class="meta-label">Ressenti</span><span class="meta-value">${Math.round(w.apparent ?? w.temp)}°C</span></div>
         <div class="meta-item"><span class="meta-label">Humidité</span><span class="meta-value">${w.humidity ?? '—'}%</span></div>
         <div class="meta-item"><span class="meta-label">Vent</span><span class="meta-value">${Math.round(w.wind)} km/h</span></div>
+        <div class="meta-item"><span class="meta-label">Direction</span><span class="meta-value">${formatWindDir(w.windDir)}</span></div>
         <div class="meta-item"><span class="meta-label">Pression</span><span class="meta-value">${w.pressure ? Math.round(w.pressure) : '—'} hPa</span></div>
-        ${extraMeta}
+        <div class="meta-item"><span class="meta-label">Nuages</span><span class="meta-value">${w.cloudCover != null ? w.cloudCover + '%' : '—'}</span></div>
       </div>
     </div>`;
 }
@@ -518,7 +533,7 @@ function renderPinFrame() {
         <span class="day-frame-chip-label"></span>
         <button type="button" class="day-frame-chip-x" title="Désépingler">✕</button>
       </div>
-      <button type="button" class="day-frame-zoom-btn" title="Voir le détail du jour">+</button>
+      <button type="button" class="day-frame-zoom-btn" title="Voir le détail du jour"></button>
     `;
     f.querySelector('.day-frame-chip-x').addEventListener('click', e => {
       e.stopPropagation();
@@ -526,10 +541,13 @@ function renderPinFrame() {
       _pinnedDay = null;
       renderDayFrames();
     });
+    // Toggle button: same physical location, dispatches enter or exit based
+    // on current zoom state. The CSS swaps the +/− glyph automatically.
     f.querySelector('.day-frame-zoom-btn').addEventListener('click', e => {
       e.stopPropagation();
-      if (_isAnimatingZoom || !_pinnedDay) return;
-      enterZoom(_pinnedDay);
+      if (_isAnimatingZoom) return;
+      if (_zoomedDay) exitZoom();
+      else if (_pinnedDay) enterZoom(_pinnedDay);
     });
     layer.appendChild(f);
   }
@@ -593,24 +611,7 @@ function applyDayNightGradient(date) {
     var(--night-band) 100%)`;
 }
 
-function setSummaryToRetour(date) {
-  const label = date ? formatDayChip(date) : '';
-  setSummaryContent(`<a href="#" class="retour-link" id="day-zoom-retour">← Retour${label ? ' · ' + label : ''}</a>`);
-  const el = document.getElementById('scrubber-summary');
-  if (el) el.classList.add('retour-mode');
-  const link = document.getElementById('day-zoom-retour');
-  if (link) link.addEventListener('click', e => {
-    e.preventDefault();
-    if (_isAnimatingZoom) return;
-    exitZoom();
-  });
-}
 
-function clearRetourSummary() {
-  const el = document.getElementById('scrubber-summary');
-  if (el) el.classList.remove('retour-mode');
-  // The next onTick will rewrite the summary with the current weather pill.
-}
 
 async function enterZoom(date) {
   if (_isAnimatingZoom || _zoomedDay) return;
@@ -644,9 +645,12 @@ async function enterZoom(date) {
   TimeCtl.setTime(target.getTime());
   renderZoomedSunMarks(date);
   applyDayNightGradient(date);
-  setSummaryToRetour(date);
-  _lastSidebarHour = null;        // force the sidebar to rebuild with the
-  renderSidebarShell();           // enriched current-card metadata
+  // The toggle button now means "exit zoom" — update tooltip; the +/−
+  // glyph itself is swapped via CSS based on the .zoomed class.
+  const btn = f.querySelector('.day-frame-zoom-btn');
+  if (btn) btn.title = 'Quitter la vue détaillée';
+  _lastSidebarHour = null;        // force the sidebar to rebuild
+  renderSidebarShell();
 
   // Phase 4: morph the frame into the zoomed external border (lighter,
   // transparent fill) and stop the shimmer.
@@ -669,7 +673,6 @@ async function exitZoom() {
   setupRange();
   document.querySelectorAll('.tl-sun-mark').forEach(el => el.remove());
   applyDayNightGradient(null);
-  clearRetourSummary();
 
   // Pin frame: shrink back to the day's position in the new range. Drop the
   // .zoomed class first so the border style transitions back to the solid
@@ -678,6 +681,8 @@ async function exitZoom() {
   if (f) {
     const pos = dayPositionPct(dayThatWasZoomed);
     f.classList.remove('zoomed', 'loading');
+    const btn = f.querySelector('.day-frame-zoom-btn');
+    if (btn) btn.title = 'Voir le détail du jour';
     if (pos) {
       f.style.left = `${pos[0]}%`;
       f.style.right = `${100 - pos[1]}%`;
@@ -717,7 +722,6 @@ async function crossfadeZoomToDay(date) {
   TimeCtl.setTime(target.getTime());
   renderZoomedSunMarks(date);
   applyDayNightGradient(date);
-  setSummaryToRetour(date);
   _lastSidebarHour = null;
   renderSidebarShell();
 

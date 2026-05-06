@@ -10,6 +10,7 @@ import { getMap, invalidateSizeSoon, clearLayer } from './map.js';
 import { fetchIndex, updateLayersForTime, clearLayers as clearRVLayers } from './rainviewer.js';
 import { drawTerminator, clearTerminator, computeSunEvents,
          getSunAltitudeDeg, getSunAzimuthDeg, getSunTimes } from './astronomy.js';
+import { updateAstroBox } from './astro-ui.js';
 import { updateTheme, resetTheme } from './theme.js';
 import { placeCar, updateCarPosition, setCarPosition, clearCar } from './car.js';
 import { wmo, CAR_SVG, STOP_DENSITIES } from './config.js';
@@ -906,7 +907,7 @@ function onTick({ time, progress }) {
   if (state.layers.terminator) drawTerminator(time);
   else clearTerminator();
   updateTheme(time, pos.lat, pos.lon);
-  updateAstroBox(time, pos.lat, pos.lon, bearing);
+  updateAstroBox('route-astro-box', time, pos.lat, pos.lon, bearing);
   // Lot B: update the "Météo courante" card in the play sidebar
   if (state.routeSidebarMode === 'play') {
     updateCurrentWeatherCard(time, pos);
@@ -916,33 +917,4 @@ function onTick({ time, progress }) {
 // Direct car position setter via the car module
 function setCarPos(lat, lon, bearing) {
   setCarPosition(lat, lon, bearing);
-}
-
-function updateAstroBox(time, lat, lon, bearing) {
-  const box = document.getElementById('astro-box');
-  if (!box.classList.contains('visible')) box.classList.add('visible');
-  try {
-    const times = getSunTimes(time, lat, lon);
-    const altDeg = getSunAltitudeDeg(time, lat, lon);
-    const azCompass = getSunAzimuthDeg(time, lat, lon);
-    document.getElementById('astro-rise').textContent = isNaN(times.sunrise.getTime()) ? '—' : fmtTime(times.sunrise);
-    document.getElementById('astro-set').textContent = isNaN(times.sunset.getTime()) ? '—' : fmtTime(times.sunset);
-    let phase;
-    if (altDeg > 30) phase = 'Plein jour';
-    else if (altDeg > 6) phase = 'Heure dorée';
-    else if (altDeg > 0) phase = 'Soleil bas';
-    else if (altDeg > -6) phase = 'Crépuscule';
-    else if (altDeg > -12) phase = 'Nuit (aube/crép. nautique)';
-    else phase = 'Pleine nuit';
-    document.getElementById('astro-pos').textContent = `${altDeg > 0 ? '+' : ''}${altDeg.toFixed(0)}° · ${phase}`;
-    const warnEl = document.getElementById('astro-warning');
-    if (altDeg > 0 && altDeg < 8 && bearing != null) {
-      const diff = Math.abs(((bearing - azCompass + 540) % 360) - 180);
-      const facingDelta = 180 - diff;
-      if (facingDelta < 30) {
-        warnEl.style.display = 'block';
-        warnEl.textContent = `Soleil bas (${altDeg.toFixed(0)}°) en face — visibilité réduite probable`;
-      } else { warnEl.style.display = 'none'; }
-    } else { warnEl.style.display = 'none'; }
-  } catch (e) {}
 }

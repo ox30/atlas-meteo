@@ -16,6 +16,30 @@ export function getSunTimes(time, lat, lon) {
   return SunCalc.getTimes(time, lat, lon);
 }
 
+// Moon altitude in degrees at time/lat/lon
+export function getMoonAltitudeDeg(time, lat, lon) {
+  return SunCalc.getMoonPosition(time, lat, lon).altitude * 180 / Math.PI;
+}
+
+// Moon azimuth in compass degrees (0=N, 90=E, 180=S, 270=W). Same convention
+// as getSunAzimuthDeg — SunCalc reports 0 = south, +west.
+export function getMoonAzimuthDeg(time, lat, lon) {
+  return (SunCalc.getMoonPosition(time, lat, lon).azimuth * 180 / Math.PI + 180 + 360) % 360;
+}
+
+// Moon rise/set times for the local day. May contain `alwaysUp` or
+// `alwaysDown` booleans instead of rise/set dates near the poles or on days
+// where the moon doesn't cross the horizon.
+export function getMoonTimes(time, lat, lon) {
+  return SunCalc.getMoonTimes(time, lat, lon);
+}
+
+// Moon illumination: { fraction (0-1), phase (0-1), angle (radians) }.
+// phase: 0=new, 0.25=first quarter, 0.5=full, 0.75=last quarter.
+export function getMoonIllumination(time) {
+  return SunCalc.getMoonIllumination(time);
+}
+
 // Compute lever / coucher events along a route between depart and arrival
 export function computeSunEvents(coords, cumDist, departTime, totalDur) {
   const events = [];
