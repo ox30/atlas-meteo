@@ -11,8 +11,6 @@ export async function fetchRoute(waypoints) {
   const j = await r.json();
   if (!j.routes?.length) throw new Error('Aucune route trouvée');
   return j.routes[0];
-  // route.legs is an array, one per segment between consecutive waypoints
-  // Each leg has .distance and .duration
 }
 
 // Cumulative distances along a polyline of [lon,lat] coords
@@ -24,8 +22,20 @@ export function computeCumDistances(coords) {
   return cum;
 }
 
+// Get point at fractional progress (0..1) along a polyline
+export function pointAtProgress(coords, cum, progress) {
+  const total = cum[cum.length-1];
+  const target = Math.max(0, Math.min(1, progress)) * total;
+  let i = 0;
+  while (i < cum.length-2 && cum[i+1] < target) i++;
+  const segLen = cum[i+1] - cum[i] || 1;
+  const sp = (target - cum[i]) / segLen;
+  const lon = coords[i][0] + (coords[i+1][0] - coords[i][0]) * sp;
+  const lat = coords[i][1] + (coords[i+1][1] - coords[i][1]) * sp;
+  return { lon, lat, segIdx: i, segProgress: sp };
+}
+
 // Find indices in the coords array that correspond to each waypoint
-// (OSRM polylines are sampled finely; we match each waypoint to nearest coord)
 export function findWaypointIndices(coords, waypoints) {
   return waypoints.map(wp => {
     let bestIdx = 0, bestDist = Infinity;
@@ -39,16 +49,13 @@ export function findWaypointIndices(coords, waypoints) {
 }
 
 // Build a timeline of segments (drive + pause) from route legs and waypoint pauses
-// Returns { segments, totalSec, departTime }
-// Each segment: { startSec, endSec, type:'drive'|'pause', wpIndex, fromCum, toCum }
 export function buildSegments(route, waypoints, departTime) {
   const segments = [];
   let t = 0;
-  const wpIndices = []; // cumulative distance up to each waypoint (computed below)
   const coords = route.geometry.coordinates;
   const wpCoordIdx = findWaypointIndices(coords, waypoints);
   const cum = computeCumDistances(coords);
-  wpIndices.push(...wpCoordIdx.map(i => cum[i]));
+  const wpCum = wpCoordIdx.map(i => cum[i]);
 
   for (let i = 0; i < route.legs.length; i++) {
     const leg = route.legs[i];
@@ -56,12 +63,11 @@ export function buildSegments(route, waypoints, departTime) {
       type: 'drive',
       startSec: t,
       endSec: t + leg.duration,
-      wpIndex: i,           // leaving waypoint i
-      fromCum: wpIndices[i],
-      toCum: wpIndices[i+1]
+      wpIndex: i,
+      fromCum: wpCum[i],
+      toCum: wpCum[i+1]
     });
     t += leg.duration;
-    // Add pause AFTER reaching waypoint i+1 (intermediate, not final)
     if (i < route.legs.length - 1) {
       const wp = waypoints[i+1];
       const pauseSec = (wp.pauseHours || 0) * 3600 + (wp.pauseMinutes || 0) * 60;
@@ -71,16 +77,15 @@ export function buildSegments(route, waypoints, departTime) {
           startSec: t,
           endSec: t + pauseSec,
           wpIndex: i+1,
-          atCum: wpIndices[i+1]
+          atCum: wpCum[i+1]
         });
         t += pauseSec;
       }
     }
   }
-  return { segments, totalSec: t, departTime, wpCum: wpIndices };
+  return { segments, totalSec: t, departTime, wpCum };
 }
 
-// Find the segment containing a given elapsed time (in seconds since departure)
 export function findSegmentAt(segments, elapsedSec) {
   for (const s of segments) {
     if (elapsedSec >= s.startSec && elapsedSec < s.endSec) return s;
@@ -88,12 +93,10 @@ export function findSegmentAt(segments, elapsedSec) {
   return segments[segments.length - 1];
 }
 
-// Compute the position along the polyline for a given elapsed time
-// Returns { lon, lat, segIdx, isPaused, currentSegment }
+// Compute position at a given elapsed time, accounting for pauses
 export function positionAtTime(segments, coords, cumDist, elapsedSec) {
   const seg = findSegmentAt(segments, elapsedSec);
   if (seg.type === 'pause') {
-    // Find the polyline position at seg.atCum
     const targetCum = seg.atCum;
     let i = 0;
     while (i < cumDist.length-2 && cumDist[i+1] < targetCum) i++;
@@ -103,7 +106,6 @@ export function positionAtTime(segments, coords, cumDist, elapsedSec) {
     const lat = coords[i][1] + (coords[i+1][1] - coords[i][1]) * sp;
     return { lon, lat, segIdx: i, isPaused: true, currentSegment: seg };
   }
-  // Drive segment: interpolate between fromCum and toCum
   const segElapsed = elapsedSec - seg.startSec;
   const segDur = seg.endSec - seg.startSec || 1;
   const segProgress = segElapsed / segDur;
@@ -118,14 +120,11 @@ export function positionAtTime(segments, coords, cumDist, elapsedSec) {
 }
 
 // Sample stops along the WHOLE route (driving phases only) for weather pictograms
-// Returns: [{ lon, lat, distFromStart, elapsedSec, arrival }]
 export function sampleRouteStops(segments, coords, cumDist, departTime, n) {
-  // Collect drive segments only
   const drives = segments.filter(s => s.type === 'drive');
   if (!drives.length) return [];
   const totalDriveDist = drives.reduce((sum, d) => sum + (d.toCum - d.fromCum), 0);
   if (totalDriveDist <= 0) return [];
-  // Distribute n samples by drive distance
   const stops = [];
   for (let i = 0; i < n; i++) {
     const targetDriveDist = (totalDriveDist * i) / (n - 1);
@@ -146,7 +145,6 @@ export function sampleRouteStops(segments, coords, cumDist, departTime, n) {
     const localProg = driveOffset / segDist;
     const cumPos = pickedDrive.fromCum + driveOffset;
     const elapsedSec = pickedDrive.startSec + localProg * segDur;
-    // Polyline position
     let idx = 0;
     while (idx < cumDist.length-2 && cumDist[idx+1] < cumPos) idx++;
     const segLen = cumDist[idx+1] - cumDist[idx] || 1;
