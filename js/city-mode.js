@@ -73,7 +73,7 @@ export function deactivate() {
   document.getElementById('chart-box').innerHTML = '';
 }
 
-async function loadCity(city) {
+async function loadCity(city, seekTime = null) {
   state.city = city;
   document.getElementById('empty-state').style.display = 'none';
   const map = getMap();
@@ -81,6 +81,9 @@ async function loadCity(city) {
   map.setView([city.latitude, city.longitude], 9);
   clearLayer(_cityMarker);
   _cityMarker = L.marker([city.latitude, city.longitude]).addTo(map);
+  // Reflect the searched location in the input field
+  const searchInput = document.getElementById('city-search');
+  if (searchInput) searchInput.value = city.name + (city.country ? ', ' + city.country : '');
   try {
     const data = await fetchCityForecast(city, state.currentModel, 14, 1);
     state.cityHourly = data.hourly;
@@ -89,9 +92,37 @@ async function loadCity(city) {
     document.getElementById('viewport').classList.add('viewport-mode-city-anim');
     invalidateSizeSoon(150);
     fetchIndex();
+    // If a seek time was requested (e.g. from "Détails →" on a route stop),
+    // pause the scrubber and jump to that moment. If beyond range, switch to
+    // the extended (14-day) range.
+    if (seekTime instanceof Date && !isNaN(seekTime.getTime())) {
+      seekToTime(seekTime);
+    }
   } catch (e) {
     toast('Erreur météo : ' + e.message);
   }
+}
+
+// Public entry point used by app.js when switching from route mode via "Détails →"
+export async function loadCityFromExternal(city, seekTime) {
+  return loadCity(city, seekTime);
+}
+
+// Seek the city scrubber to the given time, expanding range mode if needed
+function seekToTime(target) {
+  const now = new Date();
+  const daysAhead = (target.getTime() - now.getTime()) / (24 * 3600 * 1000);
+  if (daysAhead > 7 && state.rangeMode !== 'extended') {
+    state.rangeMode = 'extended';
+    setupRange();
+    import('./legend.js').then(m => m.buildLegend());
+  } else if (daysAhead > 0.1 && state.rangeMode === 'radar') {
+    state.rangeMode = 'week';
+    setupRange();
+    import('./legend.js').then(m => m.buildLegend());
+  }
+  TimeCtl.pause();
+  TimeCtl.setTime(target.getTime());
 }
 
 function setupRange() {

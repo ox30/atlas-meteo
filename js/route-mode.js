@@ -1,5 +1,5 @@
 import { TimeCtl } from './time-ctl.js';
-import { state, on, newWaypointId } from './state.js';
+import { state, on, emit, newWaypointId } from './state.js';
 import { fetchRoute, computeCumDistances, buildSegments, positionAtTime,
          sampleRouteStops, buildRouteStops, findWaypointIndices,
          findStopIdxAtTime } from './routing.js';
@@ -12,7 +12,7 @@ import { drawTerminator, clearTerminator, computeSunEvents,
          getSunAltitudeDeg, getSunAzimuthDeg, getSunTimes } from './astronomy.js';
 import { updateTheme, resetTheme } from './theme.js';
 import { placeCar, updateCarPosition, setCarPosition, clearCar } from './car.js';
-import { wmo, CAR_SVG } from './config.js';
+import { wmo, CAR_SVG, STOP_DENSITIES } from './config.js';
 import { fmtKm, fmtDur, fmtTime, fmtDate, fmtTemp, toast, debounce } from './utils.js';
 import { clearScrubberContent, setWeatherProvider, clearWeatherProvider } from './scrubber.js';
 import { renderChart } from './chart.js';
@@ -190,7 +190,12 @@ export function init() {
   });
   on('tick', onTick);
   on('modelChange', () => { if (_isActive && state.routeData) calculateTrip(); });
-  on('chartChange', () => { if (_isActive) renderChart(); });
+  on('densityChange', () => { if (_isActive && state.routeData) calculateTrip(); });
+  on('chartChange', () => {
+    if (!_isActive) return;
+    renderChart();
+    renderInfluenceBands();
+  });
   on('layerToggle', ({ layer }) => {
     if (!_isActive) return;
     if (layer === 'stops') {
@@ -206,6 +211,21 @@ export function init() {
   renderWaypoints();
   // Apply default sidebar mode (edit)
   applyRouteSidebarMode();
+
+  // Event delegation for "Détails →" buttons inside Leaflet popups
+  // (popups are created/destroyed dynamically, so we listen at document level)
+  document.addEventListener('click', e => {
+    const btn = e.target.closest('[data-action="view-details"]');
+    if (!btn) return;
+    e.stopPropagation();
+    const detail = {
+      lat: parseFloat(btn.dataset.lat),
+      lon: parseFloat(btn.dataset.lon),
+      name: btn.dataset.name,
+      time: new Date(btn.dataset.time)
+    };
+    emit('viewStopDetails', detail);
+  });
 }
 
 // ============================================================
@@ -406,7 +426,10 @@ async function calculateTrip() {
     state.totalSec = built.totalSec;
 
     // 3. Build stops: waypoints (with names + pause info) + interpolated samples
-    const N = Math.min(10, Math.max(filled.length, Math.round(routeData.distance / 100000) + 2));
+    // Stop count adapts to distance and user-chosen density
+    const density = STOP_DENSITIES[state.stopDensity] || STOP_DENSITIES.normal;
+    const distKm = routeData.distance / 1000;
+    const N = Math.min(density.cap, Math.max(filled.length, Math.round(distKm / density.kmPerStop) + 2));
     state.routeStops = buildRouteStops(state.legSegments, state.routeCoords, state.cumDistances, state.waypoints, departTime, N);
     console.log('[route] built', state.routeStops.length, 'stops (waypoints + interp)');
     try {
@@ -519,16 +542,19 @@ async function calculateTrip() {
 }
 
 // Build the popup HTML for a stop. For waypoints with pause: 2 columns (arrival/departure).
+// Each column gets a "Détails →" button that switches to city mode for that location.
 function buildStopPopup(stop, idx, w, cond) {
   const name = state.routeStopNames[idx];
   const isPause = stop.kind === 'waypoint' && stop.pauseSec > 0;
+  // Encode time as ISO so it survives the data-attr round-trip
+  const tArr = stop.arrival.toISOString();
   if (isPause) {
-    // Get departure weather (after the pause)
     const wDataDep = state.routeWeather?.[idx];
     const wDep = wDataDep ? pickHour(wDataDep, stop.pauseDeparture) : { temp: null, code: null, precip: 0, wind: 0 };
     const condDep = wDep.code != null ? wmo(wDep.code) : { icon: '—', label: '—' };
+    const tDep = stop.pauseDeparture.toISOString();
     return `
-      <div class="popup-pause">
+      <div class="popup-pause" data-stop-idx="${idx}">
         <div class="popup-pause-header">${name} · pause de ${fmtDur(stop.pauseSec)}</div>
         <div class="popup-pause-cols">
           <div class="popup-pause-col">
@@ -537,6 +563,7 @@ function buildStopPopup(stop, idx, w, cond) {
             <div class="popup-temp">${fmtTemp(w.temp)}C</div>
             <div class="popup-cond">${cond.icon} ${cond.label}</div>
             <div class="popup-meta">Vent ${Math.round(w.wind)} km/h · Précip ${w.precip.toFixed(1)} mm</div>
+            <button class="popup-details-btn" data-action="view-details" data-time="${tArr}" data-lat="${stop.lat}" data-lon="${stop.lon}" data-name="${name}">Détails →</button>
           </div>
           <div class="popup-pause-col">
             <div class="popup-pause-label">DÉPART</div>
@@ -544,17 +571,21 @@ function buildStopPopup(stop, idx, w, cond) {
             <div class="popup-temp">${fmtTemp(wDep.temp)}C</div>
             <div class="popup-cond">${condDep.icon} ${condDep.label}</div>
             <div class="popup-meta">Vent ${Math.round(wDep.wind)} km/h · Précip ${wDep.precip.toFixed(1)} mm</div>
+            <button class="popup-details-btn" data-action="view-details" data-time="${tDep}" data-lat="${stop.lat}" data-lon="${stop.lon}" data-name="${name}">Détails →</button>
           </div>
         </div>
       </div>`;
   }
   // Standard single-column popup
   return `
-    <div class="popup-time">${fmtDate(stop.arrival)} · ${fmtTime(stop.arrival)}</div>
-    <div class="popup-temp">${fmtTemp(w.temp)}C</div>
-    <div class="popup-cond">${cond.icon} ${cond.label}</div>
-    <div style="font-size:11px;color:var(--text-mute);margin-top:6px;font-family:'JetBrains Mono',monospace">
-      ${name} · Vent ${Math.round(w.wind)} km/h · Précip ${w.precip.toFixed(1)} mm
+    <div data-stop-idx="${idx}">
+      <div class="popup-time">${fmtDate(stop.arrival)} · ${fmtTime(stop.arrival)}</div>
+      <div class="popup-temp">${fmtTemp(w.temp)}C</div>
+      <div class="popup-cond">${cond.icon} ${cond.label}</div>
+      <div style="font-size:11px;color:var(--text-mute);margin-top:6px;font-family:'JetBrains Mono',monospace">
+        ${name} · Vent ${Math.round(w.wind)} km/h · Précip ${w.precip.toFixed(1)} mm
+      </div>
+      <button class="popup-details-btn" data-action="view-details" data-time="${tArr}" data-lat="${stop.lat}" data-lon="${stop.lon}" data-name="${name}">Détails →</button>
     </div>`;
 }
 
@@ -697,6 +728,79 @@ function renderScrubberPictograms(departTime) {
     sm.innerHTML = ev.type === 'sunrise' ? '🌅' : '🌇';
     sm.title = `${ev.type === 'sunrise' ? 'Lever' : 'Coucher'} du soleil · ${fmtTime(ev.time)}`;
     tlBar.appendChild(sm);
+  });
+  // Influence bands: subtle colored stripes showing which stop drives each
+  // section of the chart. Only visible when a chart is active.
+  renderInfluenceBands();
+}
+
+// Compute the temporal "influence window" for each stop on the timeline.
+// For interp stops: midpoint(prev) → midpoint(next).
+// For pause waypoints: arrival → departure (locked during the pause).
+// Returns array of { stopIdx, startSec, endSec }.
+function computeInfluenceWindows() {
+  if (!state.routeStops?.length || !state.totalSec) return [];
+  const stops = state.routeStops;
+  const windows = [];
+  for (let i = 0; i < stops.length; i++) {
+    const s = stops[i];
+    const isPause = s.kind === 'waypoint' && s.pauseSec > 0;
+    let startSec, endSec;
+    if (isPause) {
+      // The pause locks the influence window
+      startSec = s.elapsedSec;
+      endSec = s.elapsedSec + s.pauseSec;
+    } else {
+      // Midpoint with neighbors (skipping pauses, since their windows are fixed)
+      const prev = i > 0 ? stops[i - 1] : null;
+      const next = i < stops.length - 1 ? stops[i + 1] : null;
+      // If previous is a pause, our window starts at its departure
+      if (prev) {
+        const prevEnd = prev.kind === 'waypoint' && prev.pauseSec > 0
+          ? prev.elapsedSec + prev.pauseSec
+          : prev.elapsedSec;
+        startSec = (prevEnd + s.elapsedSec) / 2;
+      } else {
+        startSec = 0;
+      }
+      if (next) {
+        const nextStart = next.elapsedSec;
+        endSec = (s.elapsedSec + nextStart) / 2;
+      } else {
+        endSec = state.totalSec;
+      }
+    }
+    windows.push({ stopIdx: i, startSec, endSec });
+  }
+  return windows;
+}
+
+// Render subtle colored bands on the timeline showing the influence zone of
+// each stop on the active chart. Hidden when no chart is selected.
+const CHART_COLORS = {
+  pressure:      '#6db3d8',
+  precipitation: '#4a90b8',
+  radiation:     '#f4a460'
+};
+function renderInfluenceBands() {
+  const tlBar = document.getElementById('timeline-bar');
+  if (!tlBar) return;
+  // Clear existing bands
+  tlBar.querySelectorAll('.tl-influence-band').forEach(el => el.remove());
+  if (state.currentChart === 'none' || !state.routeStops?.length) return;
+  const color = CHART_COLORS[state.currentChart];
+  if (!color) return;
+  const windows = computeInfluenceWindows();
+  windows.forEach(w => {
+    const left = (w.startSec / state.totalSec) * 100;
+    const width = ((w.endSec - w.startSec) / state.totalSec) * 100;
+    const band = document.createElement('div');
+    band.className = 'tl-influence-band';
+    band.style.left = `${left}%`;
+    band.style.width = `${width}%`;
+    band.style.background = color;
+    band.dataset.stopIdx = w.stopIdx;
+    tlBar.appendChild(band);
   });
 }
 

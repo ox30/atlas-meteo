@@ -1,5 +1,5 @@
 import { state, emit } from './state.js';
-import { MODELS, RANGE_MODES } from './config.js';
+import { MODELS, RANGE_MODES, STOP_DENSITIES } from './config.js';
 
 const LAYER_DEFS = [
   { key: 'radar', name: 'Radar pluie', desc: 'RainViewer · 12h passé + 2h futur' },
@@ -50,6 +50,21 @@ function rangeSection() {
   </div>`;
 }
 
+function densitySection() {
+  if (state.mode !== 'route') return '';
+  return `<div class="legend-section">
+    <div class="legend-section-title">Densité des marqueurs météo</div>
+    ${Object.entries(STOP_DENSITIES).map(([key, d]) => `
+      <div class="chart-radio-row${state.stopDensity === key ? ' active' : ''}" data-density="${key}">
+        <div class="chart-radio"></div>
+        <div class="chart-radio-label">
+          <div>${d.label}</div>
+          <div class="legend-radio-desc">${d.desc}</div>
+        </div>
+      </div>`).join('')}
+  </div>`;
+}
+
 function chartSection() {
   return `<div class="legend-section">
     <div class="legend-section-title">Graphique sous la timeline</div>
@@ -73,6 +88,7 @@ export function buildLegend() {
       <div class="legend-section-title">Couches affichées</div>
       ${LAYER_DEFS.map(layerRow).join('')}
     </div>
+    ${densitySection()}
     ${chartSection()}`;
 
   panel.querySelector('#legend-model').addEventListener('change', e => {
@@ -103,6 +119,15 @@ export function buildLegend() {
       state.currentChart = k;
       panel.querySelectorAll('[data-chart]').forEach(r => r.classList.toggle('active', r.dataset.chart === k));
       emit('chartChange', { chart: k });
+    });
+  });
+  panel.querySelectorAll('[data-density]').forEach(row => {
+    row.addEventListener('click', () => {
+      const k = row.dataset.density;
+      if (k === state.stopDensity) return;
+      state.stopDensity = k;
+      panel.querySelectorAll('[data-density]').forEach(r => r.classList.toggle('active', r.dataset.density === k));
+      emit('densityChange', { density: k });
     });
   });
 }

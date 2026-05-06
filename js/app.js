@@ -66,5 +66,22 @@ on('playStateChange', ({ playing }) => {
 // Re-render chart whenever it changes
 on('chartChange', () => renderChart());
 
+// Lot C — "Détails →" button on stop popups: switch to city mode for that location
+on('viewStopDetails', async ({ name, lat, lon, time }) => {
+  // 1. Switch tab to city
+  if (state.mode !== 'city') {
+    document.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x.dataset.mode === 'city'));
+    document.querySelectorAll('.section-mode').forEach(s => s.classList.remove('active'));
+    document.getElementById('mode-city').classList.add('active');
+    RouteMode.deactivate();
+    state.mode = 'city';
+    buildLegend();
+    CityMode.activate();
+    invalidateSizeSoon(150);
+  }
+  // 2. Load the location and seek to the requested time once the city forecast is loaded
+  CityMode.loadCityFromExternal({ name, latitude: lat, longitude: lon, country: '' }, time);
+});
+
 // Start in city mode
 CityMode.activate();

@@ -18,7 +18,8 @@ export const state = {
   layers: { radar: true, clouds: true, terminator: true, sun: true, stops: true },
   rangeMode: 'week',
   currentChart: 'none',
-  routeSidebarMode: 'edit'    // 'edit' (config) | 'play' (post-calcul)
+  routeSidebarMode: 'edit',
+  stopDensity: 'normal'       // 'sparse' | 'normal' | 'dense' — markers count
 };
 
 export const bus = new EventTarget();

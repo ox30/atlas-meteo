@@ -77,3 +77,11 @@ export const RANGE_MODES = {
   week:     { hoursBefore: 0,  hoursAfter: 168, daysShown: 7,  label: 'Prévision 7 prochains jours',         shortLabel: '7 jours' },
   extended: { hoursBefore: 0,  hoursAfter: 336, daysShown: 14, label: 'Prévision 14 prochains jours',        shortLabel: '14 jours' }
 };
+
+// Stop density along a route — controls the number of weather marker stops.
+// `kmPerStop` defines the spacing target; `cap` is the max count regardless of distance.
+export const STOP_DENSITIES = {
+  sparse: { kmPerStop: 200, cap: 8,  label: 'Faible', desc: '~1 marqueur / 200 km' },
+  normal: { kmPerStop: 100, cap: 10, label: 'Normale', desc: '~1 marqueur / 100 km · défaut' },
+  dense:  { kmPerStop: 50,  cap: 20, label: 'Dense', desc: '~1 marqueur / 50 km' }
+};
