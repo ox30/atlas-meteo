@@ -46,7 +46,10 @@ export function buildSegments(route, waypoints, departTime) {
   const segments = [];
   let t = 0;
   const coords = route.geometry.coordinates;
-  const wpCoordIdx = findWaypointIndices(coords, waypoints);
+  // Normalize: state.waypoints wraps {city: {latitude, longitude}}, but
+  // findWaypointIndices expects {latitude, longitude} directly. Unwrap if needed.
+  const wpCoords = waypoints.map(w => w.city || w);
+  const wpCoordIdx = findWaypointIndices(coords, wpCoords);
   const cum = computeCumDistances(coords);
   const wpCum = wpCoordIdx.map(i => cum[i]);
 

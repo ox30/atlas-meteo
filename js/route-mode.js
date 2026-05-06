@@ -444,16 +444,10 @@ function renderScrubberPictograms(departTime) {
 // ============================================================
 // TICK HANDLER
 // ============================================================
-// Throttled tick logging
-let _tickLogCount = 0;
 function onTick({ time, progress }) {
   if (!_isActive || !state.routeData) return;
   const elapsedSec = (time.getTime() - TimeCtl.start.getTime()) / 1000;
   const pos = positionAtTime(state.legSegments, state.routeCoords, state.cumDistances, elapsedSec);
-  // Log every ~60 ticks (about once per second at 60fps)
-  if ((++_tickLogCount % 60) === 0) {
-    console.log('[tick]', _tickLogCount, 'elapsed=', Math.round(elapsedSec), 's', 'pos=', pos.lat?.toFixed(3), pos.lon?.toFixed(3), 'paused=', pos.isPaused);
-  }
   // Compute bearing from current segment direction
   let bearing = 0;
   if (!pos.isPaused) {
