@@ -4,7 +4,7 @@
   background: var(--accent); color: var(--bg);
   border: none; cursor: pointer;
   font-size: 22px; font-weight: 600;
-  z-index: 500;
+  z-index: 1100;
   display: flex; align-items: center; justify-content: center;
   box-shadow: 0 4px 14px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,151,88,0.4);
   transition: all 0.2s;
@@ -19,7 +19,7 @@
   width: 290px;
   background: var(--bg-2); border: 1px solid var(--line);
   border-radius: 4px; box-shadow: 0 8px 32px rgba(0,0,0,0.5);
-  z-index: 499;
+  z-index: 1100;
   display: none; flex-direction: column;
   max-height: calc(100vh - 200px); overflow-y: auto;
   transition: background var(--transition), border-color var(--transition);
