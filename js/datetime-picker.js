@@ -10,8 +10,9 @@
 //   attachDateTimePicker(fieldId)
 //
 // Footer behavior:
-//   Effacer    — clears the value and closes
-//   Maintenant — sets picker to current local time (rounded to MINUTE_STEP)
+//   Effacer    — resets the in-picker selection back to "now" (rounded);
+//                stays open, does NOT commit
+//   Maintenant — sets to current local time (rounded), commits, closes
 //   Valider    — commits the current selection and closes
 
 const MONTHS_FR = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin',
@@ -196,6 +197,15 @@ export function attachDateTimePicker(fieldId) {
 
   // Bindings ----------------------------------------------------------------
   function bindPopup() {
+    // Stop click propagation at the popup level so clicks inside the popup
+    // never bubble up to the field's click handler. Without this, clicking
+    // any internal control that ends up calling close() (Valider, Maintenant)
+    // would let the click bubble to .dt-field, where popupEl is now null and
+    // isOpen is false → the field handler would fall through to open() and
+    // immediately re-open the picker. Same risk applies to day-cell clicks
+    // that re-render the grid and detach the original target node.
+    popupEl.addEventListener('click', e => e.stopPropagation());
+
     popupEl.querySelectorAll('[data-nav]').forEach(btn => {
       btn.addEventListener('click', () => {
         const dir = parseInt(btn.dataset.nav, 10);
@@ -209,8 +219,9 @@ export function attachDateTimePicker(fieldId) {
     bindWheel('hour',   24, 1);
     bindWheel('minute', 60, MINUTE_STEP);
 
-    popupEl.querySelector('.dt-clear').addEventListener('click', () => commit(null));
-    popupEl.querySelector('.dt-now').addEventListener('click', () => {
+    // Effacer: reset the in-picker selection back to "now" (rounded). Stays
+    // open so the user can pick something else without losing the picker.
+    popupEl.querySelector('.dt-clear').addEventListener('click', () => {
       const now = new Date();
       now.setMinutes(roundToStep(now.getMinutes(), MINUTE_STEP), 0, 0);
       workingDate = now;
@@ -218,6 +229,13 @@ export function attachDateTimePicker(fieldId) {
       viewYear  = now.getFullYear();
       renderAll();
     });
+    // Maintenant: shortcut for "use the current time" — sets, commits, closes.
+    popupEl.querySelector('.dt-now').addEventListener('click', () => {
+      const now = new Date();
+      now.setMinutes(roundToStep(now.getMinutes(), MINUTE_STEP), 0, 0);
+      commit(now);
+    });
+    // Valider: commit whatever is currently selected and close.
     popupEl.querySelector('.dt-confirm').addEventListener('click', () => {
       commit(workingDate);
     });
