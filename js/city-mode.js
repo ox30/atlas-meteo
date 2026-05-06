@@ -50,6 +50,11 @@ export function init() {
 
 export function activate() {
   _isActive = true;
+  // Belt-and-braces: clear any route-mode artifacts left on the timeline
+  // (influence bands, stop marks, pause zones). clearScrubberContent in
+  // RouteMode.deactivate() should already have done this, but a stray late
+  // render can sneak in — be defensive.
+  document.querySelectorAll('.timeline-bar .tl-influence-band, .timeline-bar .tl-stop-mark, .timeline-bar .tl-sun-mark, .timeline-bar .tl-pause-zone, .timeline-bar .tl-pause-icon').forEach(el => el.remove());
   setWeatherProvider(time => {
     if (!state.cityHourly) return null;
     const w = pickHour(state.cityHourly, time);
