@@ -25,6 +25,14 @@ export function clearWeatherProvider() {
   _weatherProvider = null;
 }
 
+// Centralised setter for the right-side summary text in the scrubber. Modes
+// (city/route) and one-off overrides (e.g. the "← Retour" button during day
+// zoom) all go through here so we have a single touch point for that node.
+export function setSummaryContent(html) {
+  const el = document.getElementById('scrubber-summary');
+  if (el) el.innerHTML = html;
+}
+
 function setupHover() {
   const tlBar = document.getElementById('timeline-bar');
   const cursor = document.getElementById('timeline-cursor');
