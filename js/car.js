@@ -9,28 +9,35 @@ let _carEl = null;
 export function placeCar(coords, cumDist) {
   const map = getMap();
   clearLayer(_carMarker);
-  const start = pointAtProgress(coords, cumDist, 0);
-  const next = pointAtProgress(coords, cumDist, Math.min(0.001, 1));
-  const initialBearing = bearingDeg([start.lon, start.lat], [next.lon, next.lat]);
+  // Initial position: start of route
+  const start = coords[0];
+  const next = coords[Math.min(1, coords.length - 1)];
+  const initialBearing = bearingDeg(start, next);
   const icon = L.divIcon({
     className: 'car-marker',
     html: `<div class="car-rotate" id="car-rotate" style="transform: rotate(${initialBearing}deg)">${CAR_SVG}</div>`,
     iconSize: [36, 54],
     iconAnchor: [18, 27]
   });
-  _carMarker = L.marker([start.lat, start.lon], { icon, zIndexOffset: 1000 }).addTo(map);
+  _carMarker = L.marker([start[1], start[0]], { icon, zIndexOffset: 1000 }).addTo(map);
   _carEl = document.getElementById('car-rotate');
 }
 
+// Direct position setter (used by route-mode for segment-aware positioning)
+export function setCarPosition(lat, lon, bearing) {
+  if (!_carMarker) return;
+  _carMarker.setLatLng([lat, lon]);
+  if (_carEl) _carEl.style.transform = `rotate(${bearing}deg)`;
+}
+
+// Legacy: progress-based update (kept for compatibility)
 export function updateCarPosition(coords, cumDist, progress) {
   if (!_carMarker) return null;
   const p = pointAtProgress(coords, cumDist, progress);
-  // Compute bearing from current segment
   const i = p.segIdx;
   const j = Math.min(coords.length - 1, i + 1);
   const brg = bearingDeg(coords[i], coords[j]);
-  _carMarker.setLatLng([p.lat, p.lon]);
-  if (_carEl) _carEl.style.transform = `rotate(${brg}deg)`;
+  setCarPosition(p.lat, p.lon, brg);
   return { lat: p.lat, lon: p.lon, bearing: brg };
 }
 

@@ -1,11 +1,11 @@
 import { API } from './config.js';
 
-// Fetch hourly + daily forecast for a single city
+// Forecast for a city — hourly + daily including sunrise/sunset
 export async function fetchCityForecast(city, model = 'best_match', forecastDays = 7, pastDays = 0) {
   const params = new URLSearchParams({
     latitude: city.latitude,
     longitude: city.longitude,
-    hourly: 'temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m,wind_direction_10m,pressure_msl,cloud_cover',
+    hourly: 'temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m,wind_direction_10m,pressure_msl,cloud_cover,shortwave_radiation',
     daily: 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,wind_speed_10m_max,sunrise,sunset',
     timezone: 'auto',
     forecast_days: forecastDays,
@@ -17,8 +17,8 @@ export async function fetchCityForecast(city, model = 'best_match', forecastDays
   return r.json();
 }
 
-// Pick the hourly index closest to a target time
 export function pickHourIndex(hourly, target) {
+  if (!hourly?.time) return -1;
   const ts = hourly.time.map(t => new Date(t).getTime());
   const tgt = target.getTime();
   let best = 0, diff = Infinity;
@@ -31,6 +31,7 @@ export function pickHourIndex(hourly, target) {
 
 export function pickHour(hourly, target) {
   const i = pickHourIndex(hourly, target);
+  if (i < 0) return { temp: null, code: null, precip: 0, wind: 0 };
   return {
     temp: hourly.temperature_2m[i],
     code: hourly.weather_code[i],
@@ -40,22 +41,24 @@ export function pickHour(hourly, target) {
     apparent: hourly.apparent_temperature?.[i],
     pressure: hourly.pressure_msl?.[i],
     cloudCover: hourly.cloud_cover?.[i],
+    radiation: hourly.shortwave_radiation?.[i],
     windDir: hourly.wind_direction_10m?.[i],
     time: new Date(hourly.time[i])
   };
 }
 
-// Multi-point forecast (route mode)
-export async function fetchMultiPointForecast(stops, model = 'best_match') {
+// Multi-point forecast — returns array of hourly objects (one per stop)
+export async function fetchMultiPointHourly(stops, model = 'best_match') {
   const lats = stops.map(s => s.lat).join(',');
   const lons = stops.map(s => s.lon).join(',');
   const params = new URLSearchParams({
     latitude: lats, longitude: lons,
-    hourly: 'temperature_2m,precipitation,weather_code,wind_speed_10m',
+    hourly: 'temperature_2m,precipitation,weather_code,wind_speed_10m,pressure_msl,cloud_cover,shortwave_radiation',
     timezone: 'auto', forecast_days: 7, models: model
   });
   const r = await fetch(`${API.forecast}?${params}`);
   if (!r.ok) throw new Error('Échec multi-point météo');
   const j = await r.json();
-  return Array.isArray(j) ? j : [j];
+  const arr = Array.isArray(j) ? j : [j];
+  return arr.map(r => r.hourly);  // direct return of hourly objects
 }

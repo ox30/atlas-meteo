@@ -79,3 +79,20 @@
 .range-btn.active { background: var(--accent); color: var(--bg); font-weight: 700; }
 .range-btn:hover:not(.active) { color: var(--text); }
 .range-desc { font-size: 11px; color: var(--text-mute); margin-top: 8px; line-height: 1.4; }
+
+.chart-radio-row {
+  display: flex; align-items: center; gap: 9px;
+  padding: 6px 0; cursor: pointer; user-select: none;
+}
+.chart-radio-row:hover { color: var(--accent); }
+.chart-radio {
+  width: 16px; height: 16px; border-radius: 50%;
+  border: 1.5px solid var(--text-mute); flex-shrink: 0;
+  transition: all 0.15s; position: relative;
+}
+.chart-radio-row.active .chart-radio { border-color: var(--accent); }
+.chart-radio-row.active .chart-radio::after {
+  content: ''; position: absolute; inset: 3px;
+  background: var(--accent); border-radius: 50%;
+}
+.chart-radio-label { font-size: 13px; }

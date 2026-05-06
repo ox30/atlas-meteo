@@ -1,20 +1,28 @@
 // Atlas Météo — Entry point
 
-import { state } from './state.js';
+import { state, on } from './state.js';
 import { TimeCtl } from './time-ctl.js';
 import { getMap, invalidateSizeSoon } from './map.js';
 import { buildLegend, initLegendToggle } from './legend.js';
+import { initMapPicker } from './map-picker.js';
+import { initScrubberHover, clearScrubberContent } from './scrubber.js';
+import { initChart, renderChart } from './chart.js';
 import * as CityMode from './city-mode.js';
 import * as RouteMode from './route-mode.js';
 
-// Init Leaflet (creates the map and base tile layer)
+// Init Leaflet
 getMap();
 
-// Init both modes (subscriptions, autocomplete bindings)
+// Init shared subsystems
+initMapPicker();
+initScrubberHover();
+initChart();
+
+// Init both modes
 CityMode.init();
 RouteMode.init();
 
-// Build legend with current state
+// Build legend
 buildLegend();
 initLegendToggle();
 
@@ -27,35 +35,36 @@ document.querySelectorAll('.tab').forEach(t => {
     t.classList.add('active');
     document.querySelectorAll('.section-mode').forEach(s => s.classList.remove('active'));
     document.getElementById('mode-' + newMode).classList.add('active');
-    // Deactivate previous mode
     if (state.mode === 'city') CityMode.deactivate();
     else RouteMode.deactivate();
     state.mode = newMode;
-    // Rebuild legend (range switch only in city mode, stops layer hidden in city mode)
     buildLegend();
-    // Activate new mode
     if (newMode === 'city') CityMode.activate();
     else RouteMode.activate();
     invalidateSizeSoon(150);
   });
 });
 
-// Scrubber controls (shared between both modes via TimeCtl)
+// Scrubber controls
 document.getElementById('btn-play').addEventListener('click', () => TimeCtl.toggle());
 document.getElementById('btn-rewind').addEventListener('click', () => TimeCtl.reset());
 document.getElementById('speed-select').addEventListener('change', e => TimeCtl.setSpeed(parseInt(e.target.value)));
 document.getElementById('timeline-bar').addEventListener('click', e => {
   if (!TimeCtl.isInitialized()) return;
+  // Don't trigger seek when clicking on a stop mark or sun mark (they have their own handler)
+  if (e.target.closest('.tl-stop-mark, .tl-sun-mark, .tl-pause-zone, .tl-pause-icon')) return;
   const rect = e.currentTarget.getBoundingClientRect();
   const p = (e.clientX - rect.left) / rect.width;
   TimeCtl.pause();
   TimeCtl.setProgress(p);
 });
 
-import { on } from './state.js';
 on('playStateChange', ({ playing }) => {
   document.getElementById('btn-play').textContent = playing ? '⏸' : '▶';
 });
+
+// Re-render chart whenever it changes
+on('chartChange', () => renderChart());
 
 // Start in city mode
 CityMode.activate();

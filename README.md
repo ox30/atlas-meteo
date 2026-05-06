@@ -1,14 +1,29 @@
 # Atlas Météo
 
-Visualisation animée de prévisions météo, alimentée par Open-Meteo, RainViewer, OSRM et SunCalc. Deux modes : observation d'une ville avec scrubber temporel, et planification d'itinéraire avec voiture qui suit le tracé en temps simulé.
+Visualisation animée de prévisions météo, alimentée par Open-Meteo, RainViewer, OSRM et SunCalc. Deux modes : observation d'une ville avec scrubber temporel, et planification d'itinéraire multi-étapes avec voiture animée et gestion des pauses.
 
 ## Fonctionnalités
 
-- **Mode Ville** : météo actuelle + prévisions 7 jours, scrubber temporel (court : ±2h, ou long : 7 jours), couches animées radar et nuages.
-- **Mode Itinéraire** : routing OSRM, météo aux étapes selon l'heure d'arrivée, animation voiture, radar/nuages animés en temps réel.
-- **Cycle jour/nuit** : terminator solaire affiché sur la carte, teinte UI dynamique selon l'altitude du soleil au point courant.
-- **Détection soleil rasant** : avertissement quand on roule face à un soleil bas.
-- **Légende flottante** : bouton "+" en bas à gauche de la carte pour activer/désactiver les couches et changer le modèle météo.
+### Mode Ville
+- Météo actuelle + prévisions 7 jours (avec passage de jour cliquable pour scrubber)
+- Scrubber temporel court (12h passé / 2h futur) ou long (7 jours forward)
+- Couches animées : radar pluie, nuages satellite, terminator solaire
+- Cycle UI jour/nuit dynamique selon position du soleil
+
+### Mode Itinéraire
+- **Étapes multiples** avec drag&drop (Sortable.js)
+- **Pauses configurables** par étape (heures + minutes)
+- Animation voiture qui suit la route, s'immobilise pendant les pauses
+- Picto météo aux jalons selon l'heure d'arrivée
+- Lever / coucher de soleil sur la timeline avec icônes
+- Zones de pause matérialisées sur la barre temporelle
+- Détection soleil rasant face à la voiture
+
+### Communs
+- **Sélection sur carte** : bouton 📍 dans chaque champ pour cliquer directement la position
+- **Tooltip au survol** de la timeline (heure + mini-picto météo + température)
+- **Graphiques sous la timeline** activables : pression, précipitations, rayonnement solaire
+- Légende flottante (bouton + en bas à gauche) pour modèle météo, couches et graphique
 
 ## Sources de données
 
@@ -16,71 +31,71 @@ Visualisation animée de prévisions météo, alimentée par Open-Meteo, RainVie
 |--------|-------|---------|
 | [Open-Meteo](https://open-meteo.com) | Géocodage, prévisions horaires/quotidiennes | CC-BY 4.0, non-commercial |
 | [RainViewer](https://www.rainviewer.com) | Tuiles radar pluie + satellite IR | Free, fair use |
-| [OSRM](https://project-osrm.org) | Routing voiture | Free demo, fair use |
+| [OSRM](https://project-osrm.org) | Routing voiture multi-waypoints | Free demo, fair use |
 | [Nominatim](https://nominatim.openstreetmap.org) | Reverse geocoding | OSM, fair use |
 | [SunCalc](https://github.com/mourner/suncalc) | Astronomie soleil/lune | BSD-2 |
 | [Leaflet](https://leafletjs.com) | Carte | BSD-2 |
+| [Sortable.js](https://sortablejs.github.io/Sortable/) | Drag & drop des étapes | MIT |
 
 ## Lancement local
 
 Les modules ES6 imposent un serveur HTTP — ouvrir directement `index.html` en `file://` ne marchera pas.
 
 ```bash
-# Option 1 : Python
 python3 -m http.server 8000
-
-# Option 2 : Node
+# ou
 npx serve .
-
-# Option 3 : VS Code "Live Server" extension
 ```
 
-Puis ouvrir http://localhost:8000 dans le navigateur.
+Puis ouvrir http://localhost:8000.
 
 ## Déploiement GitHub Pages
 
-1. Créer un repo public sur GitHub (par exemple `atlas-meteo`)
-2. Pousser tous les fichiers
-3. Aller dans **Settings → Pages**
-4. Source : **Deploy from a branch**, branch `main`, dossier `/ (root)`
-5. Sauvegarder, attendre ~1 minute
-6. URL publique : `https://<username>.github.io/atlas-meteo/`
+1. Pousser tous les fichiers sur le repo
+2. Settings → Pages → Source : *Deploy from a branch* → branch `main` → root
+3. Attendre ~1 minute
+4. URL publique : `https://<username>.github.io/<repo>/`
 
-## Structure du projet
+## Structure
 
 ```
 atlas-meteo/
 ├── index.html
 ├── styles/
-│   ├── base.css         Variables CSS, layout principal, typographie
-│   ├── components.css   Composants UI (cards, inputs, scrubber)
-│   └── legend.css       Panneau flottant de légende
+│   ├── base.css         Variables CSS, layout, typo, transitions
+│   ├── components.css   Composants UI (cards, scrubber, chart, picker)
+│   ├── legend.css       Panneau flottant de légende + radio chart
+│   └── waypoints.css    Cards waypoints multi-étapes
 ├── js/
-│   ├── config.js        Constantes (URLs API, codes WMO, modèles)
-│   ├── utils.js         Helpers (formatters, haversine, bearing, debounce)
+│   ├── config.js        URLs API, codes WMO, modèles, palettes solaires
+│   ├── utils.js         Formatters, géo helpers, color helpers
 │   ├── state.js         État global + event bus
-│   ├── map.js           Singleton Leaflet
-│   ├── geocoding.js     Open-Meteo geocoding + autocomplete
-│   ├── weather.js       Récupération prévisions
-│   ├── routing.js       OSRM + sampling étapes
-│   ├── rainviewer.js    Couches radar pluie + nuages
-│   ├── astronomy.js     Soleil, terminator, événements lever/coucher
-│   ├── time-ctl.js      Horloge virtuelle (singleton)
-│   ├── theme.js         Palette UI dynamique selon position soleil
+│   ├── map.js           Leaflet singleton
+│   ├── geocoding.js     Open-Meteo + autocomplete + Nominatim reverse
+│   ├── weather.js       Forecasts (current/hourly/daily/multi-point)
+│   ├── routing.js       OSRM multi-waypoints + segments avec pauses
+│   ├── rainviewer.js    Couches radar + nuages satellite
+│   ├── astronomy.js     SunCalc + terminator + sun events
+│   ├── time-ctl.js      Horloge virtuelle (singleton, rAF)
+│   ├── theme.js         Palette UI dynamique selon altitude soleil
 │   ├── car.js           Marker voiture animé
-│   ├── legend.js        Panneau flottant des couches
+│   ├── map-picker.js    Sélection point par clic sur la carte
+│   ├── scrubber.js      Gestion timeline-bar + tooltip survol
+│   ├── chart.js         Graphiques SVG sous la timeline
+│   ├── legend.js        Panneau flottant rebuildable
 │   ├── city-mode.js     Orchestration mode ville
-│   ├── route-mode.js    Orchestration mode itinéraire
+│   ├── route-mode.js    Orchestration mode itinéraire multi-waypoints
 │   └── app.js           Point d'entrée
 └── README.md
 ```
 
 ## Limites connues
 
-- Le radar RainViewer ne couvre que [-12h, +2h]. Pour un voyage planifié au-delà, le radar n'apparaîtra pas (par design).
-- L'instance OSRM publique n'a pas de SLA — pour un usage intensif, s'auto-héberger ou utiliser OpenRouteService.
-- Nominatim a une politique stricte (1 req/sec) — pour de la prod, mettre en cache ou héberger.
-- Open-Meteo gratuit = non-commercial uniquement.
+- RainViewer ne couvre que [-12h, +2h] : au-delà, les couches radar/nuages disparaissent (par design)
+- L'instance OSRM publique n'a pas de SLA — pour intensif, s'auto-héberger
+- Nominatim a un fair use strict (1 req/s) — debounce intégré sur le drag
+- Open-Meteo gratuit = non-commercial uniquement
+- 10-12 waypoints max recommandé pour fluidité
 
 ## Licence
 

@@ -1,0 +1,82 @@
+.waypoints-list {
+  display: flex; flex-direction: column; gap: 8px;
+  margin-bottom: 10px;
+}
+.waypoint-card {
+  background: var(--bg-2); border: 1px solid var(--line);
+  border-radius: 2px; padding: 10px 12px;
+  display: flex; flex-direction: column; gap: 8px;
+  position: relative;
+  transition: background var(--transition), border-color var(--transition);
+}
+.waypoint-card.sortable-ghost { opacity: 0.4; background: var(--bg-3); }
+.waypoint-card.sortable-chosen { border-color: var(--accent); }
+.wp-header { display: flex; align-items: center; gap: 8px; }
+.wp-handle {
+  cursor: grab; color: var(--text-mute);
+  font-size: 14px; padding: 4px 2px;
+  user-select: none;
+}
+.wp-handle:active { cursor: grabbing; }
+.wp-index {
+  width: 22px; height: 22px; border-radius: 50%;
+  background: var(--accent); color: var(--bg);
+  font-family: 'JetBrains Mono', monospace; font-size: 11px;
+  font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.wp-search { flex: 1; position: relative; }
+.wp-search input {
+  width: 100%; padding: 8px 10px; font-size: 13px;
+  background: var(--bg-3); border: 1px solid var(--line-soft);
+  color: var(--text); border-radius: 2px;
+}
+.wp-search input:focus { border-color: var(--accent); outline: none; }
+.wp-pin {
+  width: 28px; height: 28px; flex-shrink: 0;
+  background: var(--bg-3); border: 1px solid var(--line);
+  color: var(--text-dim); cursor: pointer;
+  font-size: 12px; border-radius: 2px;
+  transition: all 0.15s;
+}
+.wp-pin:hover, .wp-pin.picking { border-color: var(--accent); color: var(--accent); }
+.wp-remove {
+  width: 26px; height: 26px; flex-shrink: 0;
+  background: transparent; border: none; color: var(--text-mute);
+  font-size: 14px; cursor: pointer; border-radius: 2px;
+  transition: all 0.15s;
+}
+.wp-remove:hover { color: var(--hot); background: rgba(232,90,79,0.1); }
+.wp-pause {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 0 0 30px;
+  border-top: 1px dashed var(--line-soft); margin-top: 4px; padding-top: 8px;
+}
+.wp-pause-label {
+  font-family: 'JetBrains Mono', monospace; font-size: 10px;
+  letter-spacing: 1px; text-transform: uppercase; color: var(--text-mute);
+  flex-shrink: 0;
+}
+.wp-pause-input {
+  width: 56px; padding: 6px 8px; font-size: 13px;
+  background: var(--bg-3); border: 1px solid var(--line-soft);
+  color: var(--text); border-radius: 2px;
+  font-family: 'JetBrains Mono', monospace;
+  text-align: right;
+}
+.wp-pause-input::-webkit-inner-spin-button,
+.wp-pause-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.wp-pause-unit { font-size: 11px; color: var(--text-mute); font-family: 'JetBrains Mono', monospace; }
+.wp-suggestions {
+  position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+  background: var(--bg-3); border: 1px solid var(--line); border-radius: 2px;
+  max-height: 200px; overflow-y: auto; z-index: 1000; display: none;
+}
+.wp-suggestions .suggestion { padding: 8px 12px; cursor: pointer; border-bottom: 1px solid var(--line-soft); font-size: 13px; }
+.wp-suggestions .suggestion:hover { background: var(--bg-2); }
+.wp-suggestions .suggestion-name { color: var(--text); font-weight: 500; }
+.wp-suggestions .suggestion-meta { font-size: 10px; color: var(--text-mute); margin-top: 1px; }
+
+/* Endpoint waypoints (start/end) */
+.waypoint-card.is-endpoint .wp-pause { display: none; }

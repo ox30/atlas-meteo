@@ -9,13 +9,19 @@ const LAYER_DEFS = [
   { key: 'stops', name: 'Étapes prévues', desc: 'Pictogrammes aux jalons (itinéraire)' }
 ];
 
+const CHART_DEFS = [
+  { key: 'none', label: 'Aucun graphique' },
+  { key: 'pressure', label: 'Pression atmosphérique' },
+  { key: 'precipitation', label: 'Précipitations' },
+  { key: 'radiation', label: 'Rayonnement solaire' }
+];
+
 function modelOptions() {
   return MODELS.map(m => `<option value="${m.value}"${m.value === state.currentModel ? ' selected' : ''}>${m.label}</option>`).join('');
 }
 
 function layerRow(d) {
   const active = state.layers[d.key];
-  // Hide "stops" layer in city mode
   if (d.key === 'stops' && state.mode === 'city') return '';
   return `<div class="layer-row${active ? ' active' : ''}" data-layer="${d.key}">
     <div class="layer-toggle"></div>
@@ -39,6 +45,17 @@ function rangeSection() {
   </div>`;
 }
 
+function chartSection() {
+  return `<div class="legend-section">
+    <div class="legend-section-title">Graphique sous la timeline</div>
+    ${CHART_DEFS.map(c => `
+      <div class="chart-radio-row${state.currentChart === c.key ? ' active' : ''}" data-chart="${c.key}">
+        <div class="chart-radio"></div>
+        <div class="chart-radio-label">${c.label}</div>
+      </div>`).join('')}
+  </div>`;
+}
+
 export function buildLegend() {
   const panel = document.getElementById('legend-panel');
   panel.innerHTML = `
@@ -50,9 +67,9 @@ export function buildLegend() {
     <div class="legend-section">
       <div class="legend-section-title">Couches affichées</div>
       ${LAYER_DEFS.map(layerRow).join('')}
-    </div>`;
+    </div>
+    ${chartSection()}`;
 
-  // Bind handlers
   panel.querySelector('#legend-model').addEventListener('change', e => {
     state.currentModel = e.target.value;
     emit('modelChange', { model: e.target.value });
@@ -62,7 +79,7 @@ export function buildLegend() {
       const r = btn.dataset.range;
       if (r === state.rangeMode) return;
       state.rangeMode = r;
-      buildLegend();  // re-render to update active state
+      buildLegend();
       emit('rangeChange', { range: r });
     });
   });
@@ -72,6 +89,15 @@ export function buildLegend() {
       state.layers[k] = !state.layers[k];
       row.classList.toggle('active', state.layers[k]);
       emit('layerToggle', { layer: k, on: state.layers[k] });
+    });
+  });
+  panel.querySelectorAll('[data-chart]').forEach(row => {
+    row.addEventListener('click', () => {
+      const k = row.dataset.chart;
+      if (k === state.currentChart) return;
+      state.currentChart = k;
+      panel.querySelectorAll('[data-chart]').forEach(r => r.classList.toggle('active', r.dataset.chart === k));
+      emit('chartChange', { chart: k });
     });
   });
 }

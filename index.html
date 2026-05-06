@@ -4,13 +4,16 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Atlas Météo — Voyage & Prévisions</title>
+<link rel="icon" href="data:,">
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Manrope:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <link rel="stylesheet" href="styles/base.css">
 <link rel="stylesheet" href="styles/components.css">
 <link rel="stylesheet" href="styles/legend.css">
+<link rel="stylesheet" href="styles/waypoints.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/suncalc/1.9.0/suncalc.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.6/Sortable.min.js"></script>
 </head>
 <body>
 <div class="app">
@@ -29,8 +32,9 @@
       <div class="section-mode active" id="mode-city">
         <div class="section-label">Recherche localité</div>
         <div class="search-group">
-          <div class="input-wrap">
+          <div class="input-wrap with-pin">
             <input type="text" id="city-search" placeholder="Berne, Lucerne, Paris…" autocomplete="off">
+            <button class="pin-btn" id="city-pin" title="Sélectionner sur la carte">📍</button>
             <div class="suggestions" id="city-suggestions"></div>
           </div>
         </div>
@@ -38,20 +42,10 @@
         <div id="city-data"></div>
       </div>
       <div class="section-mode" id="mode-route">
-        <div class="section-label">Point de départ</div>
-        <div class="search-group">
-          <div class="input-wrap">
-            <input type="text" id="route-from" placeholder="Sursee, Lausanne…" autocomplete="off">
-            <div class="suggestions" id="from-suggestions"></div>
-          </div>
-        </div>
-        <div class="section-label">Destination</div>
-        <div class="search-group">
-          <div class="input-wrap">
-            <input type="text" id="route-to" placeholder="Hambourg, Florence…" autocomplete="off">
-            <div class="suggestions" id="to-suggestions"></div>
-          </div>
-        </div>
+        <div class="section-label">Étapes du voyage</div>
+        <div class="waypoints-list" id="waypoints-list"></div>
+        <button class="btn-secondary" id="add-waypoint-btn">+ Ajouter une étape</button>
+        <div style="height: 14px"></div>
         <div class="section-label">Heure de départ</div>
         <input type="datetime-local" id="route-time">
         <div style="height: 14px"></div>
@@ -59,7 +53,7 @@
         <div class="route-stats" id="route-stats">
           <div class="rs-row">
             <div class="rs-item"><span class="rs-label">Distance</span><span class="rs-value" id="rs-dist">—</span></div>
-            <div class="rs-item"><span class="rs-label">Durée</span><span class="rs-value" id="rs-dur">—</span></div>
+            <div class="rs-item"><span class="rs-label">Durée totale</span><span class="rs-value" id="rs-dur">—</span></div>
           </div>
           <div style="height: 10px"></div>
           <div class="rs-row">
@@ -78,6 +72,7 @@
     </aside>
     <div class="viewport" id="viewport">
       <div id="map"></div>
+      <div class="map-picker-msg" id="map-picker-msg" style="display:none"></div>
       <div class="sun-overlay" id="sun-overlay"></div>
       <button class="legend-toggle" id="legend-toggle" title="Légende et options">+</button>
       <div class="legend-panel" id="legend-panel"></div>
@@ -102,7 +97,10 @@
         </div>
         <div class="timeline-bar" id="timeline-bar">
           <div class="timeline-bar-fill" id="timeline-fill"></div>
+          <div class="timeline-cursor" id="timeline-cursor"></div>
+          <div class="timeline-tooltip" id="timeline-tooltip"></div>
         </div>
+        <div class="chart-box" id="chart-box"></div>
       </div>
       <div class="empty-state" id="empty-state">
         <h2>Recherche une ville pour commencer</h2>
