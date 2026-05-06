@@ -300,11 +300,16 @@ async function calculateTrip() {
     // 3. Sample stops for weather pictograms (drives only)
     const N = Math.min(10, Math.max(filled.length, Math.round(routeData.distance / 100000) + 2));
     state.routeStops = sampleRouteStops(state.legSegments, state.routeCoords, state.cumDistances, departTime, N);
-    state.routeWeather = await fetchMultiPointHourly(state.routeStops, state.currentModel);
+    console.log('[route] sampled', state.routeStops.length, 'stops along the route');
+    try {
+      state.routeWeather = await fetchMultiPointHourly(state.routeStops, state.currentModel);
+      console.log('[route] received weather for', state.routeWeather?.length || 0, 'points');
+    } catch (e) {
+      console.warn('[route] weather fetch failed, continuing without:', e.message);
+      state.routeWeather = [];
+    }
 
-    // 4. Stop names — instant from waypoints when match, coords fallback otherwise
-    // (reverseGeocode is throttled to 1 req/sec by Nominatim policy, so we don't
-    //  await it here; intermediate names are refined progressively in background.)
+    // 4. Stop names — instant from waypoints, coords fallback
     state.routeStopNames = state.routeStops.map((s, i) => {
       for (const wp of state.waypoints) {
         const dx = wp.city.latitude - s.lat, dy = wp.city.longitude - s.lon;
@@ -314,16 +319,19 @@ async function calculateTrip() {
     });
 
     // 5. Render stop markers on the map
+    let markersAdded = 0;
     state.routeStops.forEach((s, i) => {
-      const w = pickHour(state.routeWeather[i] || state.routeWeather[0], s.arrival);
-      const cond = wmo(w.code);
+      // Use weather if available, fallback to a neutral marker
+      const wData = state.routeWeather?.[i] || state.routeWeather?.[0];
+      const w = wData ? pickHour(wData, s.arrival) : { temp: null, code: null, precip: 0, wind: 0 };
+      const cond = w.code != null ? wmo(w.code) : { icon: '📍', label: 'Étape' };
       const icon = L.divIcon({
         className: '',
         html: `<div style="background:var(--bg);border:1.5px solid var(--accent);width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:17px;box-shadow:0 4px 12px rgba(0,0,0,0.4)">${cond.icon}</div>`,
         iconSize: [34, 34], iconAnchor: [17, 17]
       });
       const m = L.marker([s.lat, s.lon], { icon, zIndexOffset: 500 });
-      if (state.layers.stops) m.addTo(map);
+      if (state.layers.stops) { m.addTo(map); markersAdded++; }
       m.bindPopup(`
         <div class="popup-time">${fmtDate(s.arrival)} · ${fmtTime(s.arrival)}</div>
         <div class="popup-temp">${fmtTemp(w.temp)}C</div>
@@ -333,6 +341,7 @@ async function calculateTrip() {
         </div>`);
       _stopMarkers.push(m);
     });
+    console.log('[route] added', markersAdded, '/', state.routeStops.length, 'stop markers (layers.stops =', state.layers.stops, ')');
 
     // 6. Stats
     const driveSec = state.legSegments.filter(s => s.type === 'drive').reduce((sum, s) => sum + (s.endSec - s.startSec), 0);
@@ -435,10 +444,16 @@ function renderScrubberPictograms(departTime) {
 // ============================================================
 // TICK HANDLER
 // ============================================================
+// Throttled tick logging
+let _tickLogCount = 0;
 function onTick({ time, progress }) {
   if (!_isActive || !state.routeData) return;
   const elapsedSec = (time.getTime() - TimeCtl.start.getTime()) / 1000;
   const pos = positionAtTime(state.legSegments, state.routeCoords, state.cumDistances, elapsedSec);
+  // Log every ~60 ticks (about once per second at 60fps)
+  if ((++_tickLogCount % 60) === 0) {
+    console.log('[tick]', _tickLogCount, 'elapsed=', Math.round(elapsedSec), 's', 'pos=', pos.lat?.toFixed(3), pos.lon?.toFixed(3), 'paused=', pos.isPaused);
+  }
   // Compute bearing from current segment direction
   let bearing = 0;
   if (!pos.isPaused) {
