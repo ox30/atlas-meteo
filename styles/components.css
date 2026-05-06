@@ -301,3 +301,32 @@ input:focus { outline: none; border-color: var(--accent); }
   cursor: pointer; border-radius: 2px; transition: all 0.15s;
 }
 .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+/* ----- À AJOUTER À LA FIN DE styles/components.css ----- */
+
+/* Quick range buttons above forecast grid */
+.range-quick-row {
+  display: flex; gap: 6px; margin: 8px 0 14px;
+}
+.range-quick {
+  flex: 1; padding: 9px 10px;
+  background: var(--bg-2); border: 1px solid var(--line);
+  color: var(--text-dim);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; letter-spacing: 1px; text-transform: uppercase;
+  cursor: pointer; border-radius: 2px;
+  transition: all 0.15s;
+}
+.range-quick:hover:not(.active) {
+  border-color: var(--accent); color: var(--text);
+}
+.range-quick.active {
+  background: var(--accent); border-color: var(--accent);
+  color: var(--bg); font-weight: 700;
+}
+
+/* Forecast grid — when in 14-day mode, wrap to 2 rows of 7 */
+.forecast-grid.wrap {
+  grid-template-columns: repeat(7, 1fr);
+  /* 14 entries naturally wrap onto 2 rows */
+}
+
