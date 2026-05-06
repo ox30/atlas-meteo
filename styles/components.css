@@ -330,3 +330,57 @@ input:focus { outline: none; border-color: var(--accent); }
   /* 14 entries naturally wrap onto 2 rows */
 }
 
+/* Popup pause: double-card layout */
+.popup-pause { min-width: 320px; }
+.popup-pause-header {
+  font-family: 'JetBrains Mono', monospace; font-size: 10px;
+  letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-mute);
+  padding-bottom: 8px; border-bottom: 1px solid var(--line-soft);
+  margin-bottom: 10px;
+}
+.popup-pause-cols {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+}
+.popup-pause-col { padding: 4px; }
+.popup-pause-col + .popup-pause-col {
+  border-left: 1px dashed var(--line-soft); padding-left: 12px;
+}
+.popup-pause-label {
+  font-family: 'JetBrains Mono', monospace; font-size: 9px;
+  letter-spacing: 1.5px; text-transform: uppercase; color: var(--accent);
+  margin-bottom: 6px;
+}
+.popup-pause-col .popup-time {
+  font-family: 'JetBrains Mono', monospace; font-size: 12px;
+  color: var(--text-dim); margin-bottom: 4px;
+}
+.popup-pause-col .popup-temp {
+  font-family: 'Instrument Serif', serif; font-size: 22px;
+  font-weight: 400; color: var(--text); line-height: 1;
+  margin-bottom: 4px;
+}
+.popup-pause-col .popup-cond {
+  font-size: 12px; color: var(--text-dim); margin-bottom: 4px;
+}
+.popup-pause-col .popup-meta {
+  font-size: 10px; color: var(--text-mute);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Timeline waypoint markers (numbered) */
+.tl-stop-mark.waypoint {
+  background: var(--accent); color: var(--bg);
+  border-color: var(--accent);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px; font-weight: 700;
+}
+.tl-stop-mark.waypoint:hover { background: var(--accent-soft); }
+.tl-stop-mark.waypoint.endpoint { color: var(--bg); }
+.tl-stop-pause-dot {
+  position: absolute; top: -4px; right: -4px;
+  background: var(--bg-3); color: var(--text-dim);
+  border: 1px solid var(--accent); border-radius: 50%;
+  width: 13px; height: 13px; font-size: 8px;
+  display: flex; align-items: center; justify-content: center;
+}
+
