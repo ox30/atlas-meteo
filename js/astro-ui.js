@@ -116,9 +116,16 @@ export function updateAstroBox(containerId, time, lat, lon, bearing = null) {
     if (warnEl) {
       let show = false;
       if (bearing != null && sunAlt > 0 && sunAlt < 8) {
+        // `diff` is the absolute angular gap between vehicle heading and sun
+        // azimuth. diff = 0  → sun directly in front (toward direction of
+        // travel); diff = 180 → sun directly behind. The warning fires when
+        // the sun is within a ±30° cone in front of the vehicle.
+        //
+        // (Earlier versions tested `(180 - diff) < 30`, which inverted the
+        // semantics and fired when the sun was *behind* the car — bug
+        // inherited from the original route-mode code, fixed in v1.3.)
         const diff = Math.abs(((bearing - sunAz + 540) % 360) - 180);
-        const facingDelta = 180 - diff;
-        if (facingDelta < 30) {
+        if (diff < 30) {
           warnEl.textContent = `Soleil bas (${sunAlt.toFixed(0)}°) en face — visibilité réduite probable`;
           show = true;
         }
