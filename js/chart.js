@@ -81,12 +81,21 @@ let _resizeHandler = null;
 export function renderChart() {
   const box = document.getElementById('chart-box');
   const viewport = document.getElementById('viewport');
-  if (state.currentChart === 'none') {
+  // Show the chart area whenever the timeline is in use (avoids the scrubber
+  // shrinking when the user toggles charts off).
+  if (TimeCtl.isInitialized()) {
+    viewport.classList.add('with-chart');
+  } else {
     viewport.classList.remove('with-chart');
     box.innerHTML = '';
     return;
   }
-  viewport.classList.add('with-chart');
+  if (state.currentChart === 'none') {
+    box.innerHTML = `<div class="chart-empty">
+      Aucun graphique sélectionné · ouvre le menu <span class="chart-empty-key">+</span> pour activer pression, précipitations ou rayonnement
+    </div>`;
+    return;
+  }
   const def = CHART_DEFS[state.currentChart];
   if (!def) { box.innerHTML = ''; return; }
   const data = sampleSeries(def.field);

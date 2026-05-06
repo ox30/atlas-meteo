@@ -6,10 +6,10 @@ import { wmo } from './config.js';
 let _hoverHandler = null;
 let _weatherProvider = null;  // function (time) -> { temp, code } or null
 
-// Clear all dynamic content (pictograms, pause zones)
+// Clear all dynamic content (pictograms, pause zones, influence bands)
 export function clearScrubberContent() {
   const tlBar = document.getElementById('timeline-bar');
-  tlBar.querySelectorAll('.tl-stop-mark, .tl-sun-mark, .tl-pause-zone, .tl-pause-icon').forEach(el => el.remove());
+  tlBar.querySelectorAll('.tl-stop-mark, .tl-sun-mark, .tl-pause-zone, .tl-pause-icon, .tl-influence-band').forEach(el => el.remove());
   document.getElementById('timeline-fill').style.width = '0%';
   document.getElementById('clock-time').textContent = '--:--';
   document.getElementById('clock-meta').textContent = '—';

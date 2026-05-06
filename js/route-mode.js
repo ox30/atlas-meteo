@@ -349,6 +349,13 @@ export function activate() {
   if (state.routeData) {
     document.getElementById('viewport').classList.add('viewport-mode-route');
     invalidateSizeSoon();
+    // If a trip was already calculated and we're returning from another mode,
+    // re-render all the visuals (polyline, markers, car, scrubber pictograms).
+    // state.routeData/routeCoords/legSegments/routeStops/routeWeather are kept
+    // intact across deactivate(); only the DOM/Leaflet objects need to be rebuilt.
+    if (state.routeStops?.length && state.routeWeather?.length) {
+      restoreRouteVisuals();
+    }
   } else {
     document.getElementById('empty-state').style.display = 'flex';
   }
@@ -356,6 +363,10 @@ export function activate() {
 
 export function deactivate() {
   _isActive = false;
+  // Save the current playback time so we can restore it when returning
+  if (state.routeData && TimeCtl.current) {
+    state.routeLastTime = new Date(TimeCtl.current);
+  }
   TimeCtl.pause();
   clearRouteVisuals();
   clearWaypointMarkers();
@@ -367,6 +378,53 @@ export function deactivate() {
   document.getElementById('viewport').classList.remove('viewport-mode-route');
   document.getElementById('viewport').classList.remove('with-chart');
   document.getElementById('chart-box').innerHTML = '';
+}
+
+// Re-render all route visuals from existing state (after returning from another mode)
+function restoreRouteVisuals() {
+  const map = getMap();
+  // Polyline
+  const latlngs = state.routeCoords.map(c => [c[1], c[0]]);
+  _routeLayer = L.polyline(latlngs, { color: '#ff9758', weight: 3, opacity: 0.85, smoothFactor: 1 }).addTo(map);
+  // Stop markers (re-create from state)
+  state.routeStops.forEach((s, i) => {
+    const wData = state.routeWeather?.[i] || state.routeWeather?.[0];
+    const w = wData ? pickHour(wData, s.arrival) : { temp: null, code: null, precip: 0, wind: 0 };
+    const cond = w.code != null ? wmo(w.code) : { icon: '📍', label: 'Étape' };
+    const isWaypoint = s.kind === 'waypoint';
+    const isPause = isWaypoint && s.pauseSec > 0;
+    let html;
+    if (isWaypoint) {
+      const wpNum = (s.waypointIndex ?? 0) + 1;
+      const pauseHint = isPause ? '<div style="position:absolute;top:-4px;right:-4px;background:var(--bg-3);border:1px solid var(--accent);border-radius:50%;width:14px;height:14px;font-size:9px;display:flex;align-items:center;justify-content:center">⏸</div>' : '';
+      html = `<div style="position:relative;background:var(--accent);color:var(--bg);border:2px solid var(--bg);width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;box-shadow:0 4px 12px rgba(0,0,0,0.5)">${wpNum}${pauseHint}</div>`;
+    } else {
+      html = `<div style="background:var(--bg);border:1.5px solid var(--accent);width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:17px;box-shadow:0 4px 12px rgba(0,0,0,0.4)">${cond.icon}</div>`;
+    }
+    const icon = L.divIcon({
+      className: '', html,
+      iconSize: isWaypoint ? [30, 30] : [34, 34],
+      iconAnchor: isWaypoint ? [15, 15] : [17, 17]
+    });
+    const m = L.marker([s.lat, s.lon], { icon, zIndexOffset: isWaypoint ? 600 : 500 });
+    if (state.layers.stops) m.addTo(map);
+    m.bindPopup(buildStopPopup(s, i, w, cond));
+    _stopMarkers.push(m);
+  });
+  // Car at start
+  placeCar(state.routeCoords, state.cumDistances);
+  // TimeCtl init from saved state
+  const departTime = state.routeStops[0].arrival;
+  const arrivalTime = new Date(departTime.getTime() + state.totalSec * 1000);
+  TimeCtl.init(departTime, arrivalTime);
+  if (state.routeLastTime) TimeCtl.setTime(state.routeLastTime.getTime());
+  // Scrubber pictograms + influence bands
+  renderScrubberPictograms(departTime);
+  // Re-fit map
+  map.fitBounds(_routeLayer.getBounds(), { padding: [40, 80] });
+  // Refit RainViewer
+  fetchIndex();
+  console.log('[route] visuals restored from saved state');
 }
 
 function clearRouteVisuals() {

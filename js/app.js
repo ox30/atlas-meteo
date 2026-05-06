@@ -68,19 +68,21 @@ on('chartChange', () => renderChart());
 
 // Lot C — "Détails →" button on stop popups: switch to city mode for that location
 on('viewStopDetails', async ({ name, lat, lon, time }) => {
-  // 1. Switch tab to city
+  const newCity = { name, latitude: lat, longitude: lon, country: '' };
   if (state.mode !== 'city') {
+    // Tab switch (DOM only). We set a flag so CityMode.activate() skips its
+    // default loadCity(state.city) — we'll trigger our own load below.
+    state.pendingExternalCityLoad = true;
     document.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x.dataset.mode === 'city'));
     document.querySelectorAll('.section-mode').forEach(s => s.classList.remove('active'));
     document.getElementById('mode-city').classList.add('active');
     RouteMode.deactivate();
     state.mode = 'city';
     buildLegend();
-    CityMode.activate();
+    CityMode.activate();        // will not auto-load thanks to the flag
     invalidateSizeSoon(150);
   }
-  // 2. Load the location and seek to the requested time once the city forecast is loaded
-  CityMode.loadCityFromExternal({ name, latitude: lat, longitude: lon, country: '' }, time);
+  await CityMode.loadCityFromExternal(newCity, time);
 });
 
 // Start in city mode

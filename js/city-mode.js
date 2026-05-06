@@ -55,6 +55,12 @@ export function activate() {
     const w = pickHour(state.cityHourly, time);
     return { temp: w.temp, code: w.code };
   });
+  // External load (e.g. coming from "Détails →" on a route stop) will be
+  // handled by loadCityFromExternal — skip our default reload to avoid races.
+  if (state.pendingExternalCityLoad) {
+    state.pendingExternalCityLoad = false;
+    return;
+  }
   if (state.city) loadCity(state.city);
   else document.getElementById('empty-state').style.display = 'flex';
 }
