@@ -57,7 +57,7 @@ export async function fetchMultiPointHourly(stops, model = 'best_match') {
   const lons = valid.map(s => s.lon.toFixed(4)).join(',');
   const params = new URLSearchParams({
     latitude: lats, longitude: lons,
-    hourly: 'temperature_2m,precipitation,weather_code,wind_speed_10m,pressure_msl,cloud_cover,shortwave_radiation',
+    hourly: 'temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m,wind_direction_10m,pressure_msl,cloud_cover,shortwave_radiation',
     timezone: 'auto', forecast_days: 7, models: model
   });
   const j = await safeFetchJson(`${API.forecast}?${params}`);

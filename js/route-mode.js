@@ -10,11 +10,11 @@ import { getMap, invalidateSizeSoon, clearLayer } from './map.js';
 import { fetchIndex, updateLayersForTime, clearLayers as clearRVLayers } from './rainviewer.js';
 import { drawTerminator, clearTerminator, computeSunEvents,
          getSunAltitudeDeg, getSunAzimuthDeg, getSunTimes } from './astronomy.js';
-import { updateAstroBox } from './astro-ui.js';
+import { updateAstroBox, setupAstroToggle } from './astro-ui.js';
 import { updateTheme, resetTheme } from './theme.js';
 import { placeCar, updateCarPosition, setCarPosition, clearCar } from './car.js';
 import { wmo, CAR_SVG, STOP_DENSITIES } from './config.js';
-import { fmtKm, fmtDur, fmtTime, fmtDate, fmtTemp, toast, debounce } from './utils.js';
+import { fmtKm, fmtDur, fmtTime, fmtDate, fmtTemp, toast, debounce, formatCompass } from './utils.js';
 import { clearScrubberContent, setWeatherProvider, clearWeatherProvider } from './scrubber.js';
 import { renderChart } from './chart.js';
 
@@ -322,10 +322,14 @@ function updateCurrentWeatherCard(time, pos) {
       </div>
     </div>
     <div class="rcc-meta">
+      <div class="rcc-meta-item"><span class="rcc-meta-label">Ressenti</span><span class="rcc-meta-value">${w.apparent != null ? Math.round(w.apparent) : (w.temp != null ? Math.round(w.temp) : '—')}°C</span></div>
+      <div class="rcc-meta-item"><span class="rcc-meta-label">Humidité</span><span class="rcc-meta-value">${w.humidity != null ? w.humidity + '%' : '—'}</span></div>
       <div class="rcc-meta-item"><span class="rcc-meta-label">Vent</span><span class="rcc-meta-value">${w.wind != null ? Math.round(w.wind) : '—'} km/h</span></div>
+      <div class="rcc-meta-item"><span class="rcc-meta-label">Direction</span><span class="rcc-meta-value">${formatCompass(w.windDir)}</span></div>
       <div class="rcc-meta-item"><span class="rcc-meta-label">Précip</span><span class="rcc-meta-value">${w.precip != null ? w.precip.toFixed(1) : '—'} mm</span></div>
       <div class="rcc-meta-item"><span class="rcc-meta-label">Pression</span><span class="rcc-meta-value">${w.pressure ? Math.round(w.pressure) : '—'} hPa</span></div>
-      <div class="rcc-meta-item"><span class="rcc-meta-label">Couv.</span><span class="rcc-meta-value">${w.cloudCover != null ? Math.round(w.cloudCover) : '—'} %</span></div>
+      <div class="rcc-meta-item"><span class="rcc-meta-label">Nuages</span><span class="rcc-meta-value">${w.cloudCover != null ? Math.round(w.cloudCover) + '%' : '—'}</span></div>
+      <div class="rcc-meta-item"><span class="rcc-meta-label">Rayonnement</span><span class="rcc-meta-value">${w.radiation != null ? Math.round(w.radiation) + ' W/m²' : '—'}</span></div>
     </div>`;
 }
 
@@ -338,6 +342,10 @@ function setDefaultTime() {
 
 export function activate() {
   _isActive = true;
+  // Wire the astro-box collapse toggle once. It's idempotent so re-activating
+  // route-mode several times in the session won't accumulate listeners (the
+  // listener is attached to a single static DOM element).
+  setupAstroToggle('route-astro-box');
   setWeatherProvider(time => {
     if (!state.routeWeather || !state.routeWeather.length) return null;
     if (!state.routeStops) return null;

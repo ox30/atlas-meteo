@@ -8,10 +8,10 @@ import { getMap, invalidateSizeSoon, clearLayer } from './map.js';
 import { setupAutocomplete } from './geocoding.js';
 import { startPicking } from './map-picker.js';
 import { RANGE_MODES, wmo } from './config.js';
-import { fmtTime, fmtDate, toast } from './utils.js';
+import { fmtTime, fmtDate, toast, formatCompass } from './utils.js';
 import { clearScrubberContent, setWeatherProvider, clearWeatherProvider, setSummaryContent } from './scrubber.js';
 import { renderChart } from './chart.js';
-import { updateAstroBox } from './astro-ui.js';
+import { updateAstroBox, setupAstroToggle } from './astro-ui.js';
 
 let _cityMarker = null;
 let _isActive = false;
@@ -45,11 +45,6 @@ function dayBounds(date) {
 }
 function formatDayChip(date) {
   return `${DAY_NAMES[date.getDay()]} ${pad2(date.getDate())}.${pad2(date.getMonth() + 1)}`;
-}
-function formatWindDir(deg) {
-  if (deg == null || !Number.isFinite(deg)) return '—';
-  const dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
-  return dirs[Math.round(((deg % 360) + 360) % 360 / 22.5) % 16];
 }
 
 export function init() {
@@ -264,7 +259,10 @@ function renderSidebarShell(time) {
   const html = `
     <div id="cur-card-host"></div>
     <div class="astro-box visible" id="city-astro-box">
-      <div class="section-label" style="margin-bottom: 8px">Astronomie</div>
+      <div class="astro-header">
+        <div class="section-label" style="margin: 0">Astronomie</div>
+        <button type="button" class="astro-toggle" title="Replier"></button>
+      </div>
       <div class="astro-section">
         <div class="astro-row"><span class="lbl">Lever soleil</span><span class="val astro-sun-rise">—</span></div>
         <div class="astro-row"><span class="lbl">Coucher soleil</span><span class="val astro-sun-set">—</span></div>
@@ -308,6 +306,10 @@ function renderSidebarShell(time) {
   if (state.city) {
     updateAstroBox('city-astro-box', time, state.city.latitude, state.city.longitude);
   }
+  // Re-wire the collapse / expand toggle on the newly-created astro-box DOM.
+  // setupAstroToggle reads the remembered state from astro-ui's internal Map
+  // so the user's collapse choice survives sidebar re-renders.
+  setupAstroToggle('city-astro-box');
 }
 
 // Just refresh the current card values without rebuilding the rest
@@ -334,9 +336,11 @@ function updateCurrentCard(time) {
         <div class="meta-item"><span class="meta-label">Ressenti</span><span class="meta-value">${Math.round(w.apparent ?? w.temp)}°C</span></div>
         <div class="meta-item"><span class="meta-label">Humidité</span><span class="meta-value">${w.humidity ?? '—'}%</span></div>
         <div class="meta-item"><span class="meta-label">Vent</span><span class="meta-value">${Math.round(w.wind)} km/h</span></div>
-        <div class="meta-item"><span class="meta-label">Direction</span><span class="meta-value">${formatWindDir(w.windDir)}</span></div>
+        <div class="meta-item"><span class="meta-label">Direction</span><span class="meta-value">${formatCompass(w.windDir)}</span></div>
+        <div class="meta-item"><span class="meta-label">Précip</span><span class="meta-value">${w.precip != null ? w.precip.toFixed(1) : '—'} mm</span></div>
         <div class="meta-item"><span class="meta-label">Pression</span><span class="meta-value">${w.pressure ? Math.round(w.pressure) : '—'} hPa</span></div>
         <div class="meta-item"><span class="meta-label">Nuages</span><span class="meta-value">${w.cloudCover != null ? w.cloudCover + '%' : '—'}</span></div>
+        <div class="meta-item"><span class="meta-label">Rayonnement</span><span class="meta-value">${w.radiation != null ? Math.round(w.radiation) + ' W/m²' : '—'}</span></div>
       </div>
     </div>`;
 }

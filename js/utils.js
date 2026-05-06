@@ -11,6 +11,14 @@ export const fmtDate = d => {
 };
 export const fmtTime = d => `${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
 
+// Wind/azimuth degree → 16-cardinal compass label (N, NNE, NE, …). Used for
+// wind direction in the meteo card and for sun/moon direction in astro-ui.
+const COMPASS_16 = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+export function formatCompass(deg) {
+  if (deg == null || !Number.isFinite(deg)) return '—';
+  return COMPASS_16[Math.round((((deg % 360) + 360) % 360) / 22.5) % 16];
+}
+
 // Debounce
 export function debounce(fn, ms) {
   let t;

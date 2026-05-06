@@ -140,6 +140,10 @@ export function initLegendToggle() {
     open = !open;
     btn.classList.toggle('open', open);
     panel.classList.toggle('open', open);
-    btn.textContent = open ? '×' : '+';
+    // Switch glyph: + (open) ↔ − (close). Same convention as the day-frame
+    // zoom toggle and the astro-box collapse button so the user has one
+    // consistent affordance for "expand / collapse" across the app.
+    btn.textContent = open ? '−' : '+';
+    btn.title = open ? 'Fermer le menu' : 'Légende et options';
   });
 }

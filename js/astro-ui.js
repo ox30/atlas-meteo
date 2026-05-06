@@ -11,15 +11,9 @@ import {
   getSunAltitudeDeg, getSunAzimuthDeg, getSunTimes,
   getMoonAltitudeDeg, getMoonAzimuthDeg, getMoonTimes, getMoonIllumination
 } from './astronomy.js';
-import { fmtTime } from './utils.js';
+import { fmtTime, formatCompass } from './utils.js';
 
-const COMPASS_16 = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
 const PHASE_EPS = 0.03;  // tolerance window around the four cardinal phases
-
-function compass(deg) {
-  if (deg == null || !Number.isFinite(deg)) return '—';
-  return COMPASS_16[Math.round((((deg % 360) + 360) % 360) / 22.5) % 16];
-}
 
 function safeTime(d) {
   return (!d || isNaN(d.getTime())) ? '—' : fmtTime(d);
@@ -70,7 +64,7 @@ function formatMoonTimes(mt) {
 function setDirection(el, altDeg, azDeg) {
   if (!el) return;
   if (altDeg > 0) {
-    el.textContent = `${compass(azDeg)} · ${Math.round(azDeg)}°`;
+    el.textContent = `${formatCompass(azDeg)} · ${Math.round(azDeg)}°`;
     el.classList.remove('astro-below-horizon');
   } else {
     el.textContent = '—';
@@ -135,4 +129,42 @@ export function updateAstroBox(containerId, time, lat, lon, bearing = null) {
     // SunCalc occasionally throws near edge dates / extreme latitudes; we'd
     // rather show stale data than break the whole tick loop.
   }
+}
+
+// === Collapse / expand toggle =============================================
+//
+// Per-box state (keyed by container id) so each mode has its own collapse
+// state and they don't interfere. Lives in module memory — survives
+// re-renders within the session, resets on full page reload. That's fine
+// for v1; if persistence across reloads becomes valuable, swap this Map for
+// a localStorage-backed wrapper.
+
+const _collapseState = new Map();
+
+/**
+ * Wire up the collapse / expand toggle button inside an astro-box. Idempotent
+ * across re-renders: city-mode rebuilds the astro-box DOM in renderSidebarShell
+ * and calls this each time, so we re-attach the listener and restore the
+ * remembered state via the Map.
+ */
+export function setupAstroToggle(containerId) {
+  const root = document.getElementById(containerId);
+  if (!root) return;
+  const btn = root.querySelector('.astro-toggle');
+  if (!btn) return;
+  const wasCollapsed = _collapseState.get(containerId) === true;
+  root.classList.toggle('collapsed', wasCollapsed);
+  btn.title = wasCollapsed ? 'Déplier' : 'Replier';
+  // Idempotent: route-mode reuses the same static button across activate
+  // cycles, and city-mode rebuilds it on every renderSidebarShell. Both
+  // paths can call this freely.
+  if (btn._astroToggleWired) return;
+  btn._astroToggleWired = true;
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    const next = !root.classList.contains('collapsed');
+    root.classList.toggle('collapsed', next);
+    btn.title = next ? 'Déplier' : 'Replier';
+    _collapseState.set(containerId, next);
+  });
 }
