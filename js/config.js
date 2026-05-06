@@ -21,7 +21,6 @@ export const WMO = {
 };
 export const wmo = c => WMO[c] || { icon: '🌡️', label: 'Inconnu' };
 
-// Available forecast models
 export const MODELS = [
   { value: 'best_match', label: 'Mix automatique (recommandé)' },
   { value: 'meteoswiss_icon_ch1', label: 'ICON-CH1 (MétéoSuisse, 1 km)' },
@@ -32,7 +31,6 @@ export const MODELS = [
   { value: 'gfs_seamless', label: 'NOAA GFS' }
 ];
 
-// Car SVG (top-down view, oriented north)
 export const CAR_SVG = `<svg viewBox="0 0 24 36" xmlns="http://www.w3.org/2000/svg" width="36" height="54">
   <rect x="3" y="6" width="18" height="26" rx="4" fill="#ff9758" stroke="#0a0e14" stroke-width="1.5"/>
   <rect x="6" y="9" width="12" height="6" rx="1" fill="#0a0e14" opacity="0.55"/>
@@ -42,7 +40,6 @@ export const CAR_SVG = `<svg viewBox="0 0 24 36" xmlns="http://www.w3.org/2000/s
   <circle cx="12" cy="19" r="1.5" fill="#0a0e14" opacity="0.4"/>
 </svg>`;
 
-// Theme palettes anchored on solar altitude (degrees)
 export const PALETTES = {
   night: {
     bg:'#0a0e14', 'bg-2':'#131a24', 'bg-3':'#1d2633',
@@ -74,8 +71,9 @@ export const PALETTES = {
   }
 };
 
-// City scrubber range modes
+// City scrubber range modes — three-tier
 export const RANGE_MODES = {
-  short: { hoursBefore: 12, hoursAfter: 2, label: 'Court (12h passé + 2h futur)' },
-  long:  { hoursBefore: 0,  hoursAfter: 168, label: 'Long (7 jours à venir)' }
+  radar:    { hoursBefore: 12, hoursAfter: 2,   daysShown: 7,  label: 'Radar focus (12h passé + 2h futur)', shortLabel: 'Radar focus' },
+  week:     { hoursBefore: 0,  hoursAfter: 168, daysShown: 7,  label: 'Prévision 7 prochains jours',         shortLabel: '7 jours' },
+  extended: { hoursBefore: 0,  hoursAfter: 336, daysShown: 14, label: 'Prévision 14 prochains jours',        shortLabel: '14 jours' }
 };

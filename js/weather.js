@@ -1,7 +1,6 @@
 import { API } from './config.js';
 
-// Forecast for a city — hourly + daily including sunrise/sunset
-export async function fetchCityForecast(city, model = 'best_match', forecastDays = 7, pastDays = 0) {
+export async function fetchCityForecast(city, model = 'best_match', forecastDays = 14, pastDays = 0) {
   const params = new URLSearchParams({
     latitude: city.latitude,
     longitude: city.longitude,
@@ -47,7 +46,6 @@ export function pickHour(hourly, target) {
   };
 }
 
-// Multi-point forecast — returns array of hourly objects (one per stop)
 export async function fetchMultiPointHourly(stops, model = 'best_match') {
   const lats = stops.map(s => s.lat).join(',');
   const lons = stops.map(s => s.lon).join(',');
@@ -60,5 +58,5 @@ export async function fetchMultiPointHourly(stops, model = 'best_match') {
   if (!r.ok) throw new Error('Échec multi-point météo');
   const j = await r.json();
   const arr = Array.isArray(j) ? j : [j];
-  return arr.map(r => r.hourly);  // direct return of hourly objects
+  return arr.map(r => r.hourly);
 }

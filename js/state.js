@@ -2,27 +2,22 @@
 
 export const state = {
   mode: 'city',
-  // City mode
   city: null,
   cityHourly: null,
   cityDaily: null,
-  // Route mode (multi-waypoints)
-  waypoints: [
-    // { id, city: {name, latitude, longitude, country}, pauseHours, pauseMinutes }
-  ],
-  routeData: null,        // OSRM response (full route through all waypoints)
-  routeCoords: null,      // geometry [lon,lat][]
-  cumDistances: null,     // cumulative distances along routeCoords
-  legSegments: null,      // [{ startSec, endSec, type:'drive'|'pause', wpIndex, fromIdx, toIdx, fromCum, toCum }]
-  totalSec: 0,            // total duration including pauses
-  routeStops: null,       // sampling points (driving only) for weather pictograms
-  routeWeather: null,     // hourly arrays per stop
+  waypoints: [],
+  routeData: null,
+  routeCoords: null,
+  cumDistances: null,
+  legSegments: null,
+  totalSec: 0,
+  routeStops: null,
+  routeWeather: null,
   routeStopNames: null,
-  // Shared display options
   currentModel: 'best_match',
   layers: { radar: true, clouds: true, terminator: true, sun: true, stops: true },
-  rangeMode: 'short',
-  currentChart: 'none'    // 'none' | 'pressure' | 'precipitation' | 'radiation'
+  rangeMode: 'week',
+  currentChart: 'none'
 };
 
 export const bus = new EventTarget();
@@ -33,6 +28,5 @@ export const on = (name, fn) => {
   return () => bus.removeEventListener(name, h);
 };
 
-// Helper to generate waypoint IDs
 let _wpId = 0;
 export const newWaypointId = () => `wp_${Date.now()}_${++_wpId}`;

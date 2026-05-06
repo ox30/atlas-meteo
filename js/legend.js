@@ -16,6 +16,12 @@ const CHART_DEFS = [
   { key: 'radiation', label: 'Rayonnement solaire' }
 ];
 
+const RANGE_RADIO_DEFS = [
+  { key: 'radar',    label: 'Radar focus (12h passé + 2h futur)' },
+  { key: 'week',     label: '7 prochains jours' },
+  { key: 'extended', label: '14 prochains jours' }
+];
+
 function modelOptions() {
   return MODELS.map(m => `<option value="${m.value}"${m.value === state.currentModel ? ' selected' : ''}>${m.label}</option>`).join('');
 }
@@ -34,14 +40,13 @@ function layerRow(d) {
 
 function rangeSection() {
   if (state.mode !== 'city') return '';
-  const desc = RANGE_MODES[state.rangeMode].label;
   return `<div class="legend-section">
     <div class="legend-section-title">Plage temporelle</div>
-    <div class="range-switch">
-      <button class="range-btn${state.rangeMode === 'short' ? ' active' : ''}" data-range="short">Court</button>
-      <button class="range-btn${state.rangeMode === 'long' ? ' active' : ''}" data-range="long">Long</button>
-    </div>
-    <div class="range-desc">${desc}</div>
+    ${RANGE_RADIO_DEFS.map(r => `
+      <div class="chart-radio-row${state.rangeMode === r.key ? ' active' : ''}" data-range="${r.key}">
+        <div class="chart-radio"></div>
+        <div class="chart-radio-label">${r.label}</div>
+      </div>`).join('')}
   </div>`;
 }
 
@@ -74,9 +79,9 @@ export function buildLegend() {
     state.currentModel = e.target.value;
     emit('modelChange', { model: e.target.value });
   });
-  panel.querySelectorAll('[data-range]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const r = btn.dataset.range;
+  panel.querySelectorAll('[data-range]').forEach(row => {
+    row.addEventListener('click', () => {
+      const r = row.dataset.range;
       if (r === state.rangeMode) return;
       state.rangeMode = r;
       buildLegend();

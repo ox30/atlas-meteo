@@ -20,7 +20,6 @@ export function init() {
   setupAutocomplete('city-search', 'city-suggestions', city => {
     if (_isActive) loadCity(city);
   });
-  // Pin button for map picker
   document.getElementById('city-pin').addEventListener('click', e => {
     if (!_isActive) return;
     startPicking('Clique sur la carte pour choisir une localité', city => {
@@ -30,7 +29,13 @@ export function init() {
   });
   on('tick', onTick);
   on('modelChange', () => { if (_isActive && state.city) loadCity(state.city); });
-  on('rangeChange', () => { if (_isActive && state.city) setupRange(); });
+  on('rangeChange', () => {
+    if (_isActive && state.city) {
+      setupRange();
+      _lastSidebarHour = null;       // force re-render of sidebar
+      renderSidebarShell();
+    }
+  });
   on('chartChange', () => { if (_isActive) renderChart(); });
   on('layerToggle', ({ layer }) => {
     if (!_isActive) return;
@@ -77,7 +82,7 @@ async function loadCity(city) {
   clearLayer(_cityMarker);
   _cityMarker = L.marker([city.latitude, city.longitude]).addTo(map);
   try {
-    const data = await fetchCityForecast(city, state.currentModel, 7, 1);
+    const data = await fetchCityForecast(city, state.currentModel, 14, 1);
     state.cityHourly = data.hourly;
     state.cityDaily = data.daily;
     setupRange();
@@ -104,7 +109,11 @@ function onTick({ time, progress }) {
     const hourKey = Math.floor(time.getTime() / 3600000);
     if (hourKey !== _lastSidebarHour) {
       _lastSidebarHour = hourKey;
-      renderSidebar(time);
+      renderSidebarShell(time);
+    } else {
+      // Refresh just the "current" card values without rebuilding the grid
+      updateCurrentCard(time);
+      updateNowHighlight(time);
     }
   }
   updateLayersForTime(time);
@@ -121,22 +130,53 @@ function onTick({ time, progress }) {
   }
 }
 
-function renderSidebar(time) {
-  const w = pickHour(state.cityHourly, time);
-  const cond = wmo(w.code);
-  const c = state.city;
-  // Filter to keep only days >= today (skip past_days dupes)
-  const today0 = new Date(); today0.setHours(0,0,0,0);
+// Build the full sidebar (current card + range buttons + grid)
+function renderSidebarShell(time) {
+  if (!time) time = TimeCtl.current || new Date();
+  const r = RANGE_MODES[state.rangeMode];
+  const today0 = new Date(); today0.setHours(0, 0, 0, 0);
   const days = [];
   for (let i = 0; i < state.cityDaily.time.length; i++) {
     const d = new Date(state.cityDaily.time[i]);
     if (d >= today0) days.push({ idx: i, date: d });
-    if (days.length >= 7) break;
+    if (days.length >= r.daysShown) break;
   }
-  const todayKey = today0.getTime();
-  const currentKey = new Date(time); currentKey.setHours(0,0,0,0);
-  const currentDayKey = currentKey.getTime();
-  let html = `
+  const titleN = r.daysShown;
+  const html = `
+    <div id="cur-card-host"></div>
+    <div class="range-quick-row">
+      <button class="range-quick${state.rangeMode === 'week' ? ' active' : ''}" data-quick="week">7 prochains jours</button>
+      <button class="range-quick${state.rangeMode === 'extended' ? ' active' : ''}" data-quick="extended">14 prochains jours</button>
+    </div>
+    <div class="section-label">Prévision ${titleN} jours</div>
+    <div class="forecast-grid${r.daysShown > 7 ? ' wrap' : ''}" id="forecast-grid"></div>
+  `;
+  document.getElementById('city-data').innerHTML = html;
+  // Quick buttons → switch range mode
+  document.querySelectorAll('[data-quick]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = btn.dataset.quick;
+      if (target === state.rangeMode) return;
+      state.rangeMode = target;
+      setupRange();
+      // Rebuild legend so that the radio in menu + reflects the change
+      import('./legend.js').then(m => m.buildLegend());
+      _lastSidebarHour = null;
+      renderSidebarShell();
+    });
+  });
+  renderForecastGrid(days, time);
+  updateCurrentCard(time);
+}
+
+// Just refresh the current card values without rebuilding the rest
+function updateCurrentCard(time) {
+  const w = pickHour(state.cityHourly, time);
+  const cond = wmo(w.code);
+  const c = state.city;
+  const host = document.getElementById('cur-card-host');
+  if (!host) return;
+  host.innerHTML = `
     <div class="current-card">
       <div class="current-loc">${c.name}${c.country?', '+c.country:''}</div>
       <div class="current-coords">${c.latitude.toFixed(3)}°N · ${c.longitude.toFixed(3)}°E · ${fmtTime(time)} ${fmtDate(time)}</div>
@@ -153,9 +193,14 @@ function renderSidebar(time) {
         <div class="meta-item"><span class="meta-label">Vent</span><span class="meta-value">${Math.round(w.wind)} km/h</span></div>
         <div class="meta-item"><span class="meta-label">Pression</span><span class="meta-value">${w.pressure ? Math.round(w.pressure) : '—'} hPa</span></div>
       </div>
-    </div>
-    <div class="section-label">Prévision 7 jours</div>
-    <div class="forecast-grid">`;
+    </div>`;
+}
+
+function renderForecastGrid(days, time) {
+  const grid = document.getElementById('forecast-grid');
+  if (!grid) return;
+  const currentDayKey = (() => { const d = new Date(time); d.setHours(0,0,0,0); return d.getTime(); })();
+  let html = '';
   for (const day of days) {
     const dc = wmo(state.cityDaily.weather_code[day.idx]);
     const dKey = new Date(day.date); dKey.setHours(0,0,0,0);
@@ -166,20 +211,44 @@ function renderSidebar(time) {
       <div class="fday-temps"><span class="fday-tmax">${Math.round(state.cityDaily.temperature_2m_max[day.idx])}°</span><span class="fday-tmin">/${Math.round(state.cityDaily.temperature_2m_min[day.idx])}°</span></div>
     </div>`;
   }
-  html += '</div>';
-  document.getElementById('city-data').innerHTML = html;
-  // Click handlers on day cards → setTime to that day at noon
-  document.querySelectorAll('.forecast-day[data-day-iso]').forEach(el => {
-    el.addEventListener('click', () => {
-      const d = new Date(el.dataset.dayIso);
-      d.setHours(12, 0, 0, 0);
-      // If beyond TimeCtl range, expand range to cover it
-      if (TimeCtl.end && d > TimeCtl.end) {
-        const newEnd = new Date(d.getTime() + 24*3600*1000);
-        TimeCtl.init(TimeCtl.start, newEnd);
-      }
-      TimeCtl.pause();
-      TimeCtl.setTime(d.getTime());
-    });
+  grid.innerHTML = html;
+  grid.querySelectorAll('.forecast-day[data-day-iso]').forEach(el => {
+    el.addEventListener('click', () => handleDayClick(new Date(el.dataset.dayIso)));
   });
+}
+
+// Just refresh which day is highlighted without rebuilding
+function updateNowHighlight(time) {
+  const grid = document.getElementById('forecast-grid');
+  if (!grid) return;
+  const currentDayKey = (() => { const d = new Date(time); d.setHours(0,0,0,0); return d.getTime(); })();
+  grid.querySelectorAll('.forecast-day[data-day-iso]').forEach(el => {
+    const d = new Date(el.dataset.dayIso); d.setHours(0,0,0,0);
+    el.classList.toggle('now', d.getTime() === currentDayKey);
+  });
+}
+
+function handleDayClick(targetDate) {
+  // Set to noon of target day
+  targetDate.setHours(12, 0, 0, 0);
+  const now = new Date();
+  const daysAhead = (targetDate.getTime() - now.getTime()) / (24 * 3600 * 1000);
+  // Switch mode if needed to make the day reachable
+  if (daysAhead > 7) {
+    if (state.rangeMode !== 'extended') {
+      state.rangeMode = 'extended';
+      setupRange();
+      import('./legend.js').then(m => m.buildLegend());
+      _lastSidebarHour = null;
+      renderSidebarShell();
+    }
+  } else if (daysAhead > 0.1 && state.rangeMode === 'radar') {
+    state.rangeMode = 'week';
+    setupRange();
+    import('./legend.js').then(m => m.buildLegend());
+    _lastSidebarHour = null;
+    renderSidebarShell();
+  }
+  TimeCtl.pause();
+  TimeCtl.setTime(targetDate.getTime());
 }
