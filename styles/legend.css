@@ -11,8 +11,11 @@
   font-family: 'Manrope', sans-serif;
 }
 .legend-toggle:hover { transform: scale(1.06); background: var(--accent-soft); }
-.legend-toggle.open { transform: rotate(45deg); }
-.legend-toggle.open:hover { transform: rotate(45deg) scale(1.06); }
+/* No rotation when open: the textContent flips between + and − directly,
+   keeping the affordance consistent with the day-frame zoom toggle and the
+   astro-box collapse button. */
+.legend-toggle.open { background: var(--accent-soft); }
+.legend-toggle.open:hover { transform: scale(1.06); background: var(--accent); }
 .viewport-mode-route .legend-toggle, .viewport-mode-city-anim .legend-toggle { bottom: 150px; }
 .legend-panel {
   position: absolute; bottom: 76px; left: 20px;

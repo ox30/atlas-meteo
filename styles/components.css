@@ -152,6 +152,50 @@ input:focus { outline: none; border-color: var(--accent); }
 }
 .astro-warning::before { content: '⚠ '; }
 
+/* Header row of the astro-box: section-label on the left, collapse / expand
+   toggle on the right. The section-label keeps its little orange leading
+   line via its own ::before pseudo, no need to fight it. */
+.astro-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.astro-toggle {
+  background: var(--bg-3);
+  border: 1px solid var(--line);
+  color: var(--text-mute);
+  width: 22px;
+  height: 18px;
+  cursor: pointer;
+  border-radius: 2px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  line-height: 1;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: color 150ms ease, border-color 150ms ease, background 150ms ease;
+}
+/* Glyph: − while expanded (click to collapse), + while collapsed (click to
+   expand). Same convention as legend-toggle and the day-frame zoom button. */
+.astro-toggle::before { content: '−'; display: block; }
+.astro-box.collapsed .astro-toggle::before { content: '+'; }
+.astro-toggle:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+/* Collapsed state: only the header (label + toggle) remains visible. */
+.astro-box.collapsed .astro-section,
+.astro-box.collapsed .astro-warning { display: none; }
+.astro-box.collapsed .astro-header { margin-bottom: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .astro-toggle { transition: none; }
+}
+
 /* Group of astro rows. The moon section gets a top border to act as a
    visual separator between the sun block and the moon block — same colour
    as the global .divider rule for consistency. */
