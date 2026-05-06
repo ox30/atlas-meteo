@@ -100,7 +100,10 @@ input:focus { outline: none; border-color: var(--accent); }
 .forecast-day.now { box-shadow: inset 0 0 0 1px var(--accent); }
 .fday-name { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--text-mute); margin-bottom: 6px; }
 .fday-icon { font-size: 22px; margin-bottom: 4px; }
-.fday-temps { font-family: 'JetBrains Mono', monospace; font-size: 11px; }
+.fday-temps {
+  font-family: 'JetBrains Mono', monospace; font-size: 11px;
+  display: flex; flex-direction: column; align-items: center; gap: 1px;
+}
 .fday-tmax { color: var(--warm); font-weight: 600; }
 .fday-tmin { color: var(--text-mute); }
 
