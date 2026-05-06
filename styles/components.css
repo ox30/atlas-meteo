@@ -589,3 +589,44 @@ input:focus { outline: none; border-color: var(--accent); }
   font-family: 'JetBrains Mono', monospace; font-size: 13px;
   color: var(--text); font-weight: 500;
 }
+
+
+/* ============================================================================
+   Lot B fixes : pause arrival/departure markers + reinforced pause zone
+   ============================================================================ */
+
+/* Distinguish arrival vs departure pictograms on the timeline */
+.tl-stop-mark.is-pause-arrival {
+  /* same orange waypoint background but with a left-side accent */
+  box-shadow: -3px 0 0 var(--accent-soft);
+}
+.tl-stop-mark.is-pause-departure {
+  /* hollow look: bg neutre with accent border, signals "leaving" */
+  background: var(--bg-3);
+  color: var(--accent);
+  border: 2px solid var(--accent);
+  box-shadow: 3px 0 0 var(--accent-soft);
+}
+.tl-stop-mark.is-pause-departure:hover {
+  background: var(--bg-2);
+}
+/* The departure marker has no pause-dot since the pause is "over" */
+
+/* Reinforced pause zone on the timeline (more visible) */
+.tl-pause-zone {
+  top: 0; bottom: 0;                /* full height of bar */
+  background: repeating-linear-gradient(45deg,
+    var(--accent-soft) 0 4px,
+    transparent 4px 10px);
+  border-left: 2px solid var(--accent);
+  border-right: 2px solid var(--accent);
+  opacity: 0.55;
+}
+.tl-pause-icon {
+  font-size: 13px;
+  color: var(--accent);
+  font-weight: 700;
+  background: var(--bg);
+  padding: 1px 4px;
+  border-radius: 2px;
+}
