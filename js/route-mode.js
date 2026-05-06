@@ -440,26 +440,43 @@ function buildStopPopup(stop, idx, w, cond) {
     </div>`;
 }
 
+// Format the tooltip text for a stop on the timeline.
+// Multi-line for pauses (more readable than a long single line).
+function formatStopTip(s, i, w) {
+  const isPause = s.kind === 'waypoint' && s.pauseSec > 0;
+  const name = state.routeStopNames[i];
+  if (isPause) {
+    return `<div class="tip-line tip-name">${name}</div>
+            <div class="tip-line tip-meta">⏸ pause de ${fmtDur(s.pauseSec)}</div>
+            <div class="tip-line tip-meta">${fmtTime(s.arrival)} → ${fmtTime(s.pauseDeparture)}</div>`;
+  }
+  return `<div class="tip-line tip-name">${name}</div>
+          <div class="tip-line tip-meta">${fmtTime(s.arrival)} · ${fmtTemp(w.temp)}C</div>`;
+}
+
 // Background refinement of stop names: reverseGeocode is throttled to 1/sec by
 // Nominatim policy (handled inside geocoding.js). For each interp stop without
-// a name, request a name and update the popup once received.
+// a name, request a name and update both the map popup AND the timeline tooltip.
 async function refineStopNamesInBackground() {
   if (!state.routeStops || !_stopMarkers.length) return;
   const target = state.routeStops;
   const markers = [..._stopMarkers];
   for (let i = 0; i < target.length; i++) {
-    if (!_isActive) break;  // user switched modes
+    if (!_isActive) break;
     const s = target[i];
-    if (s.kind !== 'interp') continue;  // already named (waypoint)
+    if (s.kind !== 'interp') continue;
     try {
       const name = await reverseGeocode(s.lat, s.lon);
-      if (!_isActive || target !== state.routeStops) break;  // route was recalculated
+      if (!_isActive || target !== state.routeStops) break;
       state.routeStopNames[i] = name;
-      // Re-bind the popup with the new name
+      // Update the map popup
       const wData = state.routeWeather?.[i] || state.routeWeather?.[0];
       const w = wData ? pickHour(wData, s.arrival) : { temp: null, code: null, precip: 0, wind: 0 };
       const cond = w.code != null ? wmo(w.code) : { icon: '📍', label: 'Étape' };
       markers[i]?.setPopupContent(buildStopPopup(s, i, w, cond));
+      // Update the timeline pictogram tooltip too
+      const mark = document.querySelector(`.tl-stop-mark[data-stop-idx="${i}"] .tl-stop-tip`);
+      if (mark) mark.innerHTML = formatStopTip(s, i, w);
     } catch (e) {
       // silently keep coords as fallback
     }
@@ -497,8 +514,8 @@ function renderScrubberPictograms(departTime) {
     const mark = document.createElement('div');
     mark.className = 'tl-stop-mark' + (isEndpoint ? ' endpoint' : '') + (isWaypoint ? ' waypoint' : '');
     mark.style.left = `${progress * 100}%`;
+    mark.dataset.stopIdx = i;       // for background-refinement updates
     if (isWaypoint && !isEndpoint) {
-      // Numbered waypoint (intermediate)
       mark.innerHTML = `${(s.waypointIndex ?? 0) + 1}`;
       if (isPause) mark.innerHTML += '<span class="tl-stop-pause-dot">⏸</span>';
     } else if (isEndpoint) {
@@ -506,18 +523,15 @@ function renderScrubberPictograms(departTime) {
     } else {
       mark.innerHTML = cond.icon;
     }
-    // Tooltip
-    let tipText;
-    if (isPause) {
-      tipText = `${state.routeStopNames[i]} · pause de ${fmtDur(s.pauseSec)} · ${fmtTime(s.arrival)} → ${fmtTime(s.pauseDeparture)}`;
-    } else {
-      tipText = `${fmtTime(s.arrival)} · ${state.routeStopNames[i]} · ${fmtTemp(w.temp)}C`;
-    }
-    mark.innerHTML += `<div class="tl-stop-tip">${tipText}</div>`;
+    // Tooltip — multi-line for pauses (more readable)
+    mark.innerHTML += `<div class="tl-stop-tip">${formatStopTip(s, i, w)}</div>`;
     mark.addEventListener('click', e => {
       e.stopPropagation();
       TimeCtl.pause();
       TimeCtl.setTime(s.arrival.getTime());
+      // Open the corresponding map marker popup so the user sees the (double) card
+      const m = _stopMarkers[i];
+      if (m && state.layers.stops) m.openPopup();
     });
     tlBar.appendChild(mark);
   });
