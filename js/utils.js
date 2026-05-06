@@ -28,7 +28,6 @@ export function toast(msg) {
 
 // Geo helpers
 export function haversine(a, b) {
-  // a, b: [lon, lat]
   const R = 6371000, toRad = d => d * Math.PI / 180;
   const dLat = toRad(b[1] - a[1]), dLon = toRad(b[0] - a[0]);
   const lat1 = toRad(a[1]), lat2 = toRad(b[1]);
@@ -36,7 +35,6 @@ export function haversine(a, b) {
   return 2 * R * Math.asin(Math.sqrt(x));
 }
 export function bearingDeg(p1, p2) {
-  // p1, p2: [lon, lat]
   const toRad = d => d * Math.PI / 180, toDeg = r => r * 180 / Math.PI;
   const phi1 = toRad(p1[1]), phi2 = toRad(p2[1]);
   const dLambda = toRad(p2[0] - p1[0]);
@@ -58,4 +56,33 @@ export function lerp(a, b, t) { return a + (b - a) * t; }
 export function lerpColor(c1, c2, t) {
   const a = hexToRgb(c1), b = hexToRgb(c2);
   return rgbToHex({ r: lerp(a.r,b.r,t), g: lerp(a.g,b.g,t), b: lerp(a.b,b.b,t) });
+}
+
+// Robust JSON fetch — handles empty bodies, non-JSON errors, network issues
+export async function safeFetchJson(url, options = {}) {
+  let r;
+  try {
+    r = await fetch(url, options);
+  } catch (e) {
+    throw new Error(`Réseau indisponible (${e.message || 'fetch failed'})`);
+  }
+  let text;
+  try { text = await r.text(); }
+  catch (e) { throw new Error('Lecture de la réponse impossible'); }
+  if (!r.ok) {
+    // Try to extract a structured error
+    try {
+      const j = JSON.parse(text);
+      throw new Error(j.reason || j.error || j.message || `HTTP ${r.status}`);
+    } catch {
+      throw new Error(text ? text.slice(0, 120) : `HTTP ${r.status} sans message`);
+    }
+  }
+  if (!text || text.trim() === '') {
+    throw new Error('Réponse vide du serveur (réessayer dans quelques secondes)');
+  }
+  try { return JSON.parse(text); }
+  catch (e) {
+    throw new Error('Réponse non-JSON : ' + text.slice(0, 100));
+  }
 }

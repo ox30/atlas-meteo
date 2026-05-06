@@ -1,4 +1,5 @@
 import { API } from './config.js';
+import { safeFetchJson } from './utils.js';
 
 export async function fetchCityForecast(city, model = 'best_match', forecastDays = 14, pastDays = 0) {
   const params = new URLSearchParams({
@@ -11,9 +12,7 @@ export async function fetchCityForecast(city, model = 'best_match', forecastDays
     past_days: pastDays,
     models: model
   });
-  const r = await fetch(`${API.forecast}?${params}`);
-  if (!r.ok) throw new Error('Échec récupération météo');
-  return r.json();
+  return safeFetchJson(`${API.forecast}?${params}`);
 }
 
 export function pickHourIndex(hourly, target) {
@@ -47,16 +46,21 @@ export function pickHour(hourly, target) {
 }
 
 export async function fetchMultiPointHourly(stops, model = 'best_match') {
-  const lats = stops.map(s => s.lat).join(',');
-  const lons = stops.map(s => s.lon).join(',');
+  if (!stops?.length) return [];
+  // Validate coordinates
+  const valid = stops.filter(s =>
+    Number.isFinite(s.lat) && Number.isFinite(s.lon) &&
+    s.lat >= -90 && s.lat <= 90 && s.lon >= -180 && s.lon <= 180
+  );
+  if (!valid.length) throw new Error('Aucune coordonnée valide pour la météo');
+  const lats = valid.map(s => s.lat.toFixed(4)).join(',');
+  const lons = valid.map(s => s.lon.toFixed(4)).join(',');
   const params = new URLSearchParams({
     latitude: lats, longitude: lons,
     hourly: 'temperature_2m,precipitation,weather_code,wind_speed_10m,pressure_msl,cloud_cover,shortwave_radiation',
     timezone: 'auto', forecast_days: 7, models: model
   });
-  const r = await fetch(`${API.forecast}?${params}`);
-  if (!r.ok) throw new Error('Échec multi-point météo');
-  const j = await r.json();
+  const j = await safeFetchJson(`${API.forecast}?${params}`);
   const arr = Array.isArray(j) ? j : [j];
-  return arr.map(r => r.hourly);
+  return arr.map(r => r?.hourly).filter(Boolean);
 }

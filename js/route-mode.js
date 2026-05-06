@@ -302,16 +302,16 @@ async function calculateTrip() {
     state.routeStops = sampleRouteStops(state.legSegments, state.routeCoords, state.cumDistances, departTime, N);
     state.routeWeather = await fetchMultiPointHourly(state.routeStops, state.currentModel);
 
-    // 4. Reverse-geo for stop names
-    state.routeStopNames = await Promise.all(state.routeStops.map(async (s, i) => {
-      // Match endpoints to waypoint names if very close
-      for (let j = 0; j < state.waypoints.length; j++) {
-        const wp = state.waypoints[j];
+    // 4. Stop names — instant from waypoints when match, coords fallback otherwise
+    // (reverseGeocode is throttled to 1 req/sec by Nominatim policy, so we don't
+    //  await it here; intermediate names are refined progressively in background.)
+    state.routeStopNames = state.routeStops.map((s, i) => {
+      for (const wp of state.waypoints) {
         const dx = wp.city.latitude - s.lat, dy = wp.city.longitude - s.lon;
         if (dx*dx + dy*dy < 0.001) return wp.city.name;
       }
-      return await reverseGeocode(s.lat, s.lon);
-    }));
+      return `${s.lat.toFixed(2)}°, ${s.lon.toFixed(2)}°`;
+    });
 
     // 5. Render stop markers on the map
     state.routeStops.forEach((s, i) => {

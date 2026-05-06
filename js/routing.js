@@ -1,19 +1,15 @@
 import { API } from './config.js';
-import { haversine } from './utils.js';
+import { haversine, safeFetchJson } from './utils.js';
 
-// Fetch driving route between 2+ waypoints (each {longitude, latitude})
 export async function fetchRoute(waypoints) {
   if (!waypoints || waypoints.length < 2) throw new Error('Au moins 2 étapes requises');
   const coords = waypoints.map(w => `${w.longitude},${w.latitude}`).join(';');
   const url = `${API.routing}/${coords}?overview=full&geometries=geojson&steps=false`;
-  const r = await fetch(url);
-  if (!r.ok) throw new Error('Routing OSRM indisponible');
-  const j = await r.json();
-  if (!j.routes?.length) throw new Error('Aucune route trouvée');
+  const j = await safeFetchJson(url);
+  if (!j.routes?.length) throw new Error('Aucune route trouvée entre ces étapes');
   return j.routes[0];
 }
 
-// Cumulative distances along a polyline of [lon,lat] coords
 export function computeCumDistances(coords) {
   const cum = [0];
   for (let i = 1; i < coords.length; i++) {
@@ -22,7 +18,6 @@ export function computeCumDistances(coords) {
   return cum;
 }
 
-// Get point at fractional progress (0..1) along a polyline
 export function pointAtProgress(coords, cum, progress) {
   const total = cum[cum.length-1];
   const target = Math.max(0, Math.min(1, progress)) * total;
@@ -35,7 +30,6 @@ export function pointAtProgress(coords, cum, progress) {
   return { lon, lat, segIdx: i, segProgress: sp };
 }
 
-// Find indices in the coords array that correspond to each waypoint
 export function findWaypointIndices(coords, waypoints) {
   return waypoints.map(wp => {
     let bestIdx = 0, bestDist = Infinity;
@@ -48,7 +42,6 @@ export function findWaypointIndices(coords, waypoints) {
   });
 }
 
-// Build a timeline of segments (drive + pause) from route legs and waypoint pauses
 export function buildSegments(route, waypoints, departTime) {
   const segments = [];
   let t = 0;
@@ -93,7 +86,6 @@ export function findSegmentAt(segments, elapsedSec) {
   return segments[segments.length - 1];
 }
 
-// Compute position at a given elapsed time, accounting for pauses
 export function positionAtTime(segments, coords, cumDist, elapsedSec) {
   const seg = findSegmentAt(segments, elapsedSec);
   if (seg.type === 'pause') {
@@ -119,7 +111,6 @@ export function positionAtTime(segments, coords, cumDist, elapsedSec) {
   return { lon, lat, segIdx: i, isPaused: false, currentSegment: seg };
 }
 
-// Sample stops along the WHOLE route (driving phases only) for weather pictograms
 export function sampleRouteStops(segments, coords, cumDist, departTime, n) {
   const drives = segments.filter(s => s.type === 'drive');
   if (!drives.length) return [];
