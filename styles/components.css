@@ -152,6 +152,15 @@ input:focus { outline: none; border-color: var(--accent); }
 }
 .astro-warning::before { content: '⚠ '; }
 
+/* Group of astro rows. The moon section gets a top border to act as a
+   visual separator between the sun block and the moon block — same colour
+   as the global .divider rule for consistency. */
+.astro-section + .astro-section { border-top: 1px solid var(--line); margin-top: 8px; padding-top: 8px; }
+
+/* Direction value when the body is below the horizon — dimmed so it reads
+   as "no actionable info" without disturbing the layout's row count. */
+.astro-below-horizon { color: var(--text-mute); opacity: 0.6; }
+
 
 /* ----- Map ---------------------------------------------------------------- */
 #map { width: 100%; height: 100%; background: var(--bg-2); }
@@ -825,7 +834,9 @@ input:focus { outline: none; border-color: var(--accent); }
 }
 .day-frame-chip-x:hover { color: var(--accent); }
 
-/* "+" zoom button below the chart-box. */
+/* "+" zoom button below the chart-box. The glyph itself is rendered by the
+   ::before pseudo so we can swap +/− cleanly via the .zoomed parent class
+   without touching the button's text content. */
 .day-frame-zoom-btn {
   position: absolute;
   bottom: -22px;
@@ -846,40 +857,40 @@ input:focus { outline: none; border-color: var(--accent); }
   align-items: center;
   justify-content: center;
   font-family: 'JetBrains Mono', monospace;
-  transition: background 150ms ease, color 150ms ease, opacity 150ms ease;
+  transition: background 150ms ease, color 150ms ease, opacity 150ms ease, border-color 200ms ease;
   z-index: 6;
+}
+.day-frame-zoom-btn::before {
+  content: '+';
+  display: block;
+  line-height: 1;
+}
+/* Zoomed state → button is the exit affordance. Same physical position
+   (under the encadré, centred) so the user's eye doesn't have to hunt. */
+.day-frame.zoomed .day-frame-zoom-btn::before { content: '−'; }
+.day-frame.zoomed .day-frame-zoom-btn {
+  border-color: var(--accent-soft);
+  color: var(--accent-soft);
 }
 .day-frame-zoom-btn:hover {
   background: var(--accent);
   color: var(--bg);
 }
+.day-frame.zoomed .day-frame-zoom-btn:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent-soft);
+  color: var(--bg);
+}
 
-/* Hide chip + "+" while the rideau is up (mid-animation) or while the frame
-   is in zoomed state — in zoom mode the only exit is via the "← Retour"
-   link in the scrubber summary. */
+/* Hide chip while loading (mid-animation), and also when zoomed (the date
+   is already shown in the clock-meta top-left). The toggle button stays
+   visible in zoomed state — that's the only way out. */
 .day-frame.loading .day-frame-chip,
-.day-frame.loading .day-frame-zoom-btn,
 .day-frame.zoomed .day-frame-chip,
-.day-frame.zoomed .day-frame-zoom-btn {
+.day-frame.loading .day-frame-zoom-btn {
   opacity: 0;
   pointer-events: none;
 }
-
-/* "← Retour" link replacing the weather pill in the scrubber summary while
-   zoomed. Uses the timeline colour scheme: --accent-soft at rest (matches
-   the pale end of the timeline-bar fill gradient), --accent on hover
-   (matches the bright cursor / fill tip). */
-.scrubber-summary.retour-mode { color: var(--accent-soft); }
-.scrubber-summary .retour-link {
-  color: var(--accent-soft);
-  text-decoration: none;
-  cursor: pointer;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 11px;
-  letter-spacing: 0.5px;
-  transition: color 150ms ease;
-}
-.scrubber-summary .retour-link:hover { color: var(--accent); }
 
 /* Honour the OS-level reduced-motion preference: no slide, no shimmer. The
    state changes still happen — just snap-cut instead of animated. */
@@ -887,7 +898,6 @@ input:focus { outline: none; border-color: var(--accent); }
   .day-frame,
   .day-frame-chip,
   .day-frame-chip-x,
-  .day-frame-zoom-btn,
-  .scrubber-summary .retour-link { transition: none; }
+  .day-frame-zoom-btn { transition: none; }
   .day-frame.loading::before { animation: none; }
 }
