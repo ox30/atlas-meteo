@@ -24,7 +24,12 @@
   border-radius: 4px; box-shadow: 0 8px 32px rgba(0,0,0,0.5);
   z-index: 1100;
   display: none; flex-direction: column;
-  max-height: calc(100vh - 200px); overflow-y: auto;
+  /* max-height is computed against the parent (.viewport) height (100%),
+     not 100vh, so the header is naturally excluded. We reserve the bottom
+     offset (76px) plus a 16px margin from viewport top. The bottom-offset
+     overrides below adjust the same way for animation/route modes. */
+  max-height: calc(100% - 76px - 16px);
+  overflow: hidden; /* clip rounded corners; scrolling lives in .legend-content */
   transition: background var(--transition), border-color var(--transition);
 }
 .legend-panel.open { display: flex; animation: legendPop 0.2s ease-out; }
@@ -32,7 +37,57 @@
   from { transform: translateY(8px) scale(0.96); opacity: 0; }
   to { transform: translateY(0) scale(1); opacity: 1; }
 }
-.viewport-mode-route .legend-panel, .viewport-mode-city-anim .legend-panel { bottom: 206px; }
+.viewport-mode-route .legend-panel,
+.viewport-mode-city-anim .legend-panel {
+  bottom: 206px;
+  max-height: calc(100% - 206px - 16px);
+}
+/* When a chart is also visible, the scrubber takes more room */
+.viewport-mode-route.with-chart .legend-panel,
+.viewport-mode-city-anim.with-chart .legend-panel {
+  /* bottom is already overridden in components.css to 296px */
+  max-height: calc(100% - 296px - 16px);
+}
+
+/* Tabs bar — fixed at the top of the panel, never scrolls */
+.legend-tabs {
+  display: flex;
+  flex-shrink: 0;
+  background: var(--bg-3);
+  border-bottom: 1px solid var(--line);
+}
+.legend-tab {
+  flex: 1;
+  padding: 11px 6px;
+  background: transparent;
+  border: none;
+  color: var(--text-mute);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px; /* overlap parent border so active underline aligns */
+  font-weight: 500;
+}
+.legend-tab:hover { color: var(--text); }
+.legend-tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+  background: var(--bg-2);
+}
+
+/* Scrollable content area inside the panel */
+.legend-content {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+.legend-pane { display: none; }
+.legend-pane.active { display: block; }
+
 .legend-section { padding: 14px 16px; border-bottom: 1px solid var(--line-soft); }
 .legend-section:last-child { border-bottom: none; }
 .legend-section-title {
