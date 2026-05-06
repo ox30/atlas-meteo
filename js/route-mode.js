@@ -183,6 +183,10 @@ export function init() {
   setDefaultTime();
   document.getElementById('add-waypoint-btn').addEventListener('click', () => addWaypoint());
   document.getElementById('calc-btn').addEventListener('click', () => { if (_isActive) calculateTrip(); });
+  document.getElementById('btn-edit-route').addEventListener('click', () => {
+    if (!_isActive) return;
+    setRouteSidebarMode('edit');
+  });
   on('tick', onTick);
   on('modelChange', () => { if (_isActive && state.routeData) calculateTrip(); });
   on('chartChange', () => { if (_isActive) renderChart(); });
@@ -199,6 +203,111 @@ export function init() {
   });
   // Initial render
   renderWaypoints();
+  // Apply default sidebar mode (edit)
+  applyRouteSidebarMode();
+}
+
+// ============================================================
+// LOT B — Edit / Play sidebar modes
+// ============================================================
+
+function applyRouteSidebarMode() {
+  const editPanel = document.getElementById('route-panel-edit');
+  const playPanel = document.getElementById('route-panel-play');
+  if (!editPanel || !playPanel) return;
+  if (state.routeSidebarMode === 'play') {
+    editPanel.classList.remove('is-active');
+    playPanel.classList.add('is-active');
+  } else {
+    playPanel.classList.remove('is-active');
+    editPanel.classList.add('is-active');
+  }
+}
+
+function setRouteSidebarMode(mode) {
+  if (mode !== 'edit' && mode !== 'play') return;
+  if (state.routeSidebarMode === mode) return;
+  state.routeSidebarMode = mode;
+  applyRouteSidebarMode();
+}
+
+function showRouteLoader() {
+  document.getElementById('mode-route')?.classList.add('is-calculating');
+}
+function hideRouteLoader() {
+  document.getElementById('mode-route')?.classList.remove('is-calculating');
+}
+
+// Compact summary string for play header
+function renderPlaySummary() {
+  const el = document.getElementById('play-summary');
+  if (!el) return;
+  const wps = state.waypoints.filter(w => w.city);
+  if (wps.length < 2) { el.innerHTML = '—'; return; }
+  const parts = [];
+  for (let i = 0; i < wps.length; i++) {
+    const wp = wps[i];
+    const cityName = wp.city.name.split(',')[0];   // strip ", Suisse" etc.
+    parts.push(`<span class="ps-step">${cityName}</span>`);
+    if (i < wps.length - 1) {
+      const pauseSec = (wp.pauseHours || 0) * 3600 + (wp.pauseMinutes || 0) * 60;
+      if (pauseSec > 0) {
+        parts.push(`<span class="ps-pause">⏸ ${fmtDur(pauseSec)}</span>`);
+      }
+      parts.push('<span class="ps-arrow">→</span>');
+    }
+  }
+  el.innerHTML = parts.join('');
+}
+
+// Find the route stop whose arrival is closest in time to t (used for current weather)
+function findClosestStop(t) {
+  if (!state.routeStops?.length) return null;
+  const tt = t.getTime();
+  let bestIdx = 0, bestDiff = Infinity;
+  for (let i = 0; i < state.routeStops.length; i++) {
+    const d = Math.abs(state.routeStops[i].arrival.getTime() - tt);
+    if (d < bestDiff) { bestDiff = d; bestIdx = i; }
+  }
+  return { idx: bestIdx, stop: state.routeStops[bestIdx] };
+}
+
+// Update the "Météo courante" card in the play panel based on car position
+function updateCurrentWeatherCard(time, pos) {
+  const card = document.getElementById('route-current-card');
+  if (!card) return;
+  if (!state.routeStops?.length || !state.routeWeather?.length) {
+    card.innerHTML = '<div class="rcc-empty">En attente de la simulation…</div>';
+    return;
+  }
+  const closest = findClosestStop(time);
+  if (!closest) return;
+  const wData = state.routeWeather[closest.idx] || state.routeWeather[0];
+  const w = wData ? pickHour(wData, time) : { temp: null, code: null, precip: 0, wind: 0 };
+  const cond = w.code != null ? wmo(w.code) : { icon: '🌡️', label: 'Inconnu' };
+  const name = state.routeStopNames?.[closest.idx] || `${closest.stop.lat.toFixed(2)}°, ${closest.stop.lon.toFixed(2)}°`;
+  const isPaused = pos?.isPaused || false;
+  const status = isPaused
+    ? `⏸ En pause à ${name}`
+    : `En route · proche de ${name}`;
+  card.innerHTML = `
+    <div class="rcc-loc">${name}</div>
+    <div class="rcc-status${isPaused ? ' is-paused' : ''}">${status}</div>
+    <div class="rcc-row">
+      <div>
+        <div class="rcc-temp">${w.temp != null ? Math.round(w.temp) : '—'}<span class="unit">°C</span></div>
+      </div>
+      <div style="text-align:right">
+        <div class="rcc-icon">${cond.icon}</div>
+        <div class="rcc-label">${cond.label}</div>
+      </div>
+    </div>
+    <div class="rcc-meta">
+      <div class="rcc-meta-item"><span class="rcc-meta-label">Vent</span><span class="rcc-meta-value">${w.wind != null ? Math.round(w.wind) : '—'} km/h</span></div>
+      <div class="rcc-meta-item"><span class="rcc-meta-label">Précip</span><span class="rcc-meta-value">${w.precip != null ? w.precip.toFixed(1) : '—'} mm</span></div>
+      <div class="rcc-meta-item"><span class="rcc-meta-label">Pression</span><span class="rcc-meta-value">${w.pressure ? Math.round(w.pressure) : '—'} hPa</span></div>
+      <div class="rcc-meta-item"><span class="rcc-meta-label">Couv.</span><span class="rcc-meta-value">${w.cloudCover != null ? Math.round(w.cloudCover) : '—'} %</span></div>
+    </div>`;
 }
 
 function setDefaultTime() {
@@ -273,6 +382,11 @@ async function calculateTrip() {
 
   const btn = document.getElementById('calc-btn');
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+
+  // Loader animation: ensure the spinner is visible at least 600ms for clear feedback
+  const calcStart = Date.now();
+  const MIN_LOADER_MS = 600;
+  showRouteLoader();
 
   try {
     document.getElementById('empty-state').style.display = 'none';
@@ -391,7 +505,17 @@ async function calculateTrip() {
     invalidateSizeSoon(150);
     setTimeout(() => TimeCtl.play(), 600);
 
+    // 11. Switch to "play" sidebar mode (after loader minimum + smooth transition)
+    renderPlaySummary();
+    const elapsed = Date.now() - calcStart;
+    const remaining = Math.max(0, MIN_LOADER_MS - elapsed);
+    setTimeout(() => {
+      hideRouteLoader();
+      setRouteSidebarMode('play');
+    }, remaining);
+
   } catch (e) {
+    hideRouteLoader();
     toast('Erreur : ' + e.message);
     console.error(e);
   } finally {
@@ -592,6 +716,10 @@ function onTick({ time, progress }) {
   else clearTerminator();
   updateTheme(time, pos.lat, pos.lon);
   updateAstroBox(time, pos.lat, pos.lon, bearing);
+  // Lot B: update the "Météo courante" card in the play sidebar
+  if (state.routeSidebarMode === 'play') {
+    updateCurrentWeatherCard(time, pos);
+  }
 }
 
 // Direct car position setter via the car module

@@ -17,7 +17,8 @@ export const state = {
   currentModel: 'best_match',
   layers: { radar: true, clouds: true, terminator: true, sun: true, stops: true },
   rangeMode: 'week',
-  currentChart: 'none'
+  currentChart: 'none',
+  routeSidebarMode: 'edit'    // 'edit' (config) | 'play' (post-calcul)
 };
 
 export const bus = new EventTarget();
