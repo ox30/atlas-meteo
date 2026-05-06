@@ -630,3 +630,49 @@ input:focus { outline: none; border-color: var(--accent); }
   padding: 1px 4px;
   border-radius: 2px;
 }
+
+
+/* ============================================================================
+   Lot C : popup details button + influence bands + density radio descriptions
+   ============================================================================ */
+
+/* "Détails →" button inside a popup */
+.popup-details-btn {
+  display: block; width: 100%; margin-top: 10px;
+  padding: 7px 10px;
+  background: var(--bg-2); color: var(--accent);
+  border: 1px solid var(--accent); border-radius: 2px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase;
+  font-weight: 600; cursor: pointer;
+  transition: all 0.15s;
+}
+.popup-details-btn:hover {
+  background: var(--accent); color: var(--bg);
+}
+.popup-pause-col .popup-details-btn { margin-top: 8px; padding: 6px 8px; }
+
+/* Influence bands on the timeline (colored windows tied to each stop's data) */
+.tl-influence-band {
+  position: absolute;
+  top: 0; bottom: 0;
+  pointer-events: none;
+  opacity: 0.16;
+  z-index: 0;
+  transition: opacity 0.15s;
+  border-left: 1px solid currentColor;
+  border-right: 1px solid currentColor;
+}
+.tl-influence-band:nth-child(odd) { opacity: 0.10; }
+/* Highlight the band when hovering its source stop */
+.tl-stop-mark:hover ~ .tl-influence-band[data-stop-idx],
+.tl-influence-band.is-active { opacity: 0.28; }
+
+/* Density radio rows in the legend (label + description) */
+.legend-radio-desc {
+  font-size: 10px;
+  color: var(--text-mute);
+  font-family: 'JetBrains Mono', monospace;
+  letter-spacing: 0.3px;
+  margin-top: 1px;
+}
