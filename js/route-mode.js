@@ -1,7 +1,8 @@
 import { TimeCtl } from './time-ctl.js';
 import { state, on, newWaypointId } from './state.js';
 import { fetchRoute, computeCumDistances, buildSegments, positionAtTime,
-         sampleRouteStops, buildRouteStops, findWaypointIndices } from './routing.js';
+         sampleRouteStops, buildRouteStops, findWaypointIndices,
+         findStopIdxAtTime } from './routing.js';
 import { fetchMultiPointHourly, pickHour } from './weather.js';
 import { reverseGeocode, geocode } from './geocoding.js';
 import { startPicking } from './map-picker.js';
@@ -260,16 +261,13 @@ function renderPlaySummary() {
   el.innerHTML = parts.join('');
 }
 
-// Find the route stop whose arrival is closest in time to t (used for current weather)
-function findClosestStop(t) {
+// Find the route stop whose weather should be displayed for time t.
+// Pause-aware: during a pause, locks on the waypoint stop. Otherwise: closest in time.
+function findStopForTime(t) {
   if (!state.routeStops?.length) return null;
-  const tt = t.getTime();
-  let bestIdx = 0, bestDiff = Infinity;
-  for (let i = 0; i < state.routeStops.length; i++) {
-    const d = Math.abs(state.routeStops[i].arrival.getTime() - tt);
-    if (d < bestDiff) { bestDiff = d; bestIdx = i; }
-  }
-  return { idx: bestIdx, stop: state.routeStops[bestIdx] };
+  const idx = findStopIdxAtTime(state.legSegments, state.routeStops, TimeCtl.start, t);
+  if (idx < 0) return null;
+  return { idx, stop: state.routeStops[idx] };
 }
 
 // Update the "Météo courante" card in the play panel based on car position
@@ -280,7 +278,7 @@ function updateCurrentWeatherCard(time, pos) {
     card.innerHTML = '<div class="rcc-empty">En attente de la simulation…</div>';
     return;
   }
-  const closest = findClosestStop(time);
+  const closest = findStopForTime(time);
   if (!closest) return;
   const wData = state.routeWeather[closest.idx] || state.routeWeather[0];
   const w = wData ? pickHour(wData, time) : { temp: null, code: null, precip: 0, wind: 0 };
@@ -321,14 +319,10 @@ export function activate() {
   _isActive = true;
   setWeatherProvider(time => {
     if (!state.routeWeather || !state.routeWeather.length) return null;
-    // Find which stop's time is closest
     if (!state.routeStops) return null;
-    let bestIdx = 0, bestDiff = Infinity;
-    for (let i = 0; i < state.routeStops.length; i++) {
-      const d = Math.abs(state.routeStops[i].arrival.getTime() - time.getTime());
-      if (d < bestDiff) { bestDiff = d; bestIdx = i; }
-    }
-    const w = pickHour(state.routeWeather[bestIdx], time);
+    const idx = findStopIdxAtTime(state.legSegments, state.routeStops, TimeCtl.start, time);
+    if (idx < 0) return null;
+    const w = pickHour(state.routeWeather[idx], time);
     return { temp: w.temp, code: w.code };
   });
   updateWaypointMarkers();
@@ -566,9 +560,21 @@ function buildStopPopup(stop, idx, w, cond) {
 
 // Format the tooltip text for a stop on the timeline.
 // Multi-line for pauses (more readable than a long single line).
-function formatStopTip(s, i, w) {
+// Format the tooltip text for a stop on the timeline.
+// `role` is 'arrival', 'departure', or null for non-paused stops.
+function formatStopTip(s, i, w, role = null) {
   const isPause = s.kind === 'waypoint' && s.pauseSec > 0;
   const name = state.routeStopNames[i];
+  if (isPause && role === 'arrival') {
+    return `<div class="tip-line tip-name">${name}</div>
+            <div class="tip-line tip-meta">⏸ arrivée · pause de ${fmtDur(s.pauseSec)}</div>
+            <div class="tip-line tip-meta">${fmtTime(s.arrival)} → ${fmtTime(s.pauseDeparture)}</div>`;
+  }
+  if (isPause && role === 'departure') {
+    return `<div class="tip-line tip-name">${name}</div>
+            <div class="tip-line tip-meta">▶ départ après pause de ${fmtDur(s.pauseSec)}</div>
+            <div class="tip-line tip-meta">${fmtTime(s.pauseDeparture)} · ${fmtTemp(w.temp)}C</div>`;
+  }
   if (isPause) {
     return `<div class="tip-line tip-name">${name}</div>
             <div class="tip-line tip-meta">⏸ pause de ${fmtDur(s.pauseSec)}</div>
@@ -635,10 +641,14 @@ function renderScrubberPictograms(departTime) {
     const w = wData ? pickHour(wData, s.arrival) : { temp: null, code: null };
     const cond = w.code != null ? wmo(w.code) : { icon: '', label: '' };
     const progress = s.elapsedSec / state.totalSec;
+    // ----- "Arrival" pictogram (always rendered) -----
     const mark = document.createElement('div');
-    mark.className = 'tl-stop-mark' + (isEndpoint ? ' endpoint' : '') + (isWaypoint ? ' waypoint' : '');
+    mark.className = 'tl-stop-mark'
+      + (isEndpoint ? ' endpoint' : '')
+      + (isWaypoint ? ' waypoint' : '')
+      + (isPause ? ' is-pause-arrival' : '');
     mark.style.left = `${progress * 100}%`;
-    mark.dataset.stopIdx = i;       // for background-refinement updates
+    mark.dataset.stopIdx = i;
     if (isWaypoint && !isEndpoint) {
       mark.innerHTML = `${(s.waypointIndex ?? 0) + 1}`;
       if (isPause) mark.innerHTML += '<span class="tl-stop-pause-dot">⏸</span>';
@@ -647,17 +657,36 @@ function renderScrubberPictograms(departTime) {
     } else {
       mark.innerHTML = cond.icon;
     }
-    // Tooltip — multi-line for pauses (more readable)
-    mark.innerHTML += `<div class="tl-stop-tip">${formatStopTip(s, i, w)}</div>`;
+    mark.innerHTML += `<div class="tl-stop-tip">${formatStopTip(s, i, w, isPause ? 'arrival' : null)}</div>`;
     mark.addEventListener('click', e => {
       e.stopPropagation();
       TimeCtl.pause();
       TimeCtl.setTime(s.arrival.getTime());
-      // Open the corresponding map marker popup so the user sees the (double) card
       const m = _stopMarkers[i];
       if (m && state.layers.stops) m.openPopup();
     });
     tlBar.appendChild(mark);
+
+    // ----- "Departure" pictogram for paused waypoints (additional, after pause) -----
+    if (isPause && s.pauseDeparture) {
+      const depElapsed = s.elapsedSec + s.pauseSec;
+      const depProgress = depElapsed / state.totalSec;
+      const wDep = wData ? pickHour(wData, s.pauseDeparture) : { temp: null, code: null };
+      const depMark = document.createElement('div');
+      depMark.className = 'tl-stop-mark waypoint is-pause-departure';
+      depMark.style.left = `${depProgress * 100}%`;
+      depMark.dataset.stopIdx = i;   // same source stop (refresh updates both)
+      depMark.innerHTML = `${(s.waypointIndex ?? 0) + 1}`;
+      depMark.innerHTML += `<div class="tl-stop-tip">${formatStopTip(s, i, wDep, 'departure')}</div>`;
+      depMark.addEventListener('click', e => {
+        e.stopPropagation();
+        TimeCtl.pause();
+        TimeCtl.setTime(s.pauseDeparture.getTime());
+        const m = _stopMarkers[i];
+        if (m && state.layers.stops) m.openPopup();
+      });
+      tlBar.appendChild(depMark);
+    }
   });
   // Sun events
   const sunEvents = computeSunEvents(state.routeCoords, state.cumDistances, departTime, state.totalSec);

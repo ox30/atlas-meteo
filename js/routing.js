@@ -203,3 +203,39 @@ export function buildRouteStops(segments, coords, cumDist, waypoints, departTime
   // 4. Sort all by elapsedSec
   return [...wpStops, ...filteredInterp].sort((a, b) => a.elapsedSec - b.elapsedSec);
 }
+
+
+// Find the stop index that should drive the weather display at a given time.
+// During a pause: returns the waypoint stop where the pause occurs (forces
+// the weather to stay on that location for the whole pause duration).
+// Otherwise: returns the stop temporally closest to `time`.
+//
+// Inputs:
+//   legSegments — built segments (drives + pauses)
+//   routeStops  — output of buildRouteStops
+//   departTime  — Date of trip start
+//   time        — Date for which we want the relevant stop
+export function findStopIdxAtTime(legSegments, routeStops, departTime, time) {
+  if (!routeStops?.length) return -1;
+  // 1. Check if we're in a pause segment
+  if (legSegments && departTime) {
+    const elapsedSec = (time.getTime() - departTime.getTime()) / 1000;
+    for (const seg of legSegments) {
+      if (seg.type === 'pause' && elapsedSec >= seg.startSec && elapsedSec < seg.endSec) {
+        // Find the waypoint stop matching this pause's wpIndex
+        const idx = routeStops.findIndex(s =>
+          s.kind === 'waypoint' && s.waypointIndex === seg.wpIndex
+        );
+        if (idx >= 0) return idx;
+      }
+    }
+  }
+  // 2. Otherwise: closest stop temporally
+  const tt = time.getTime();
+  let bestIdx = 0, bestDiff = Infinity;
+  for (let i = 0; i < routeStops.length; i++) {
+    const d = Math.abs(routeStops[i].arrival.getTime() - tt);
+    if (d < bestDiff) { bestDiff = d; bestIdx = i; }
+  }
+  return bestIdx;
+}

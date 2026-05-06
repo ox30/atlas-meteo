@@ -2,6 +2,7 @@ import { state, on } from './state.js';
 import { TimeCtl } from './time-ctl.js';
 import { pickHour } from './weather.js';
 import { fmtTime } from './utils.js';
+import { findStopIdxAtTime } from './routing.js';
 
 const CHART_DEFS = {
   pressure:      { label: 'Pression atmosphérique', unit: 'hPa', field: 'pressure',     color: '#6db3d8', kind: 'line', minSpan: 5 },
@@ -13,14 +14,8 @@ const CHART_DEFS = {
 function getHourlyAt(t) {
   if (state.mode === 'city') return state.cityHourly;
   if (state.mode === 'route' && state.routeWeather && state.routeWeather.length && state.routeStops?.length) {
-    // Find stop whose arrival is closest to t
-    const tt = t.getTime();
-    let bestIdx = 0, bestDiff = Infinity;
-    for (let i = 0; i < state.routeStops.length; i++) {
-      const d = Math.abs(state.routeStops[i].arrival.getTime() - tt);
-      if (d < bestDiff) { bestDiff = d; bestIdx = i; }
-    }
-    return state.routeWeather[bestIdx] || state.routeWeather[0];
+    const idx = findStopIdxAtTime(state.legSegments, state.routeStops, TimeCtl.start, t);
+    return state.routeWeather[idx >= 0 ? idx : 0] || state.routeWeather[0];
   }
   return null;
 }
