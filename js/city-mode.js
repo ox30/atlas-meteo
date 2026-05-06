@@ -250,7 +250,7 @@ function renderForecastGrid(days, time) {
     html += `<div class="forecast-day${isCurrent ? ' now' : ''}" title="${dc.label}" data-day-iso="${day.date.toISOString()}">
       <div class="fday-name">${['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'][day.date.getDay()]}</div>
       <div class="fday-icon">${dc.icon}</div>
-      <div class="fday-temps"><span class="fday-tmax">${Math.round(state.cityDaily.temperature_2m_max[day.idx])}°</span><span class="fday-tmin">/${Math.round(state.cityDaily.temperature_2m_min[day.idx])}°</span></div>
+      <div class="fday-temps"><span class="fday-tmax">${Math.round(state.cityDaily.temperature_2m_max[day.idx])}°</span><span class="fday-tmin">${Math.round(state.cityDaily.temperature_2m_min[day.idx])}°</span></div>
     </div>`;
   }
   grid.innerHTML = html;
