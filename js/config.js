@@ -7,6 +7,12 @@ export const API = {
   rainviewer: 'https://api.rainviewer.com/public/weather-maps.json'
 };
 
+// Cloudflare Worker proxy for tile providers that need a key
+// (currently OpenWeatherMap clouds_new). Set up in /worker, see README-deploy.md.
+// If you ever fork the project, replace this with your own Worker URL.
+export const TILES_BASE = 'https://atlas-meteo-tiles.<YOUR_CF_USERNAME>.workers.dev';
+export const CLOUD_TILES_URL = `${TILES_BASE}/owm/clouds_new/{z}/{x}/{y}.png`;
+
 // WMO weather codes -> icon + french label
 export const WMO = {
   0:{icon:'☀️',label:'Ciel dégagé'}, 1:{icon:'🌤️',label:'Plutôt dégagé'},
@@ -72,10 +78,13 @@ export const PALETTES = {
 };
 
 // City scrubber range modes — three-tier
+// `radar` is bounded to 2h past so the timeline matches what RainViewer's free
+// API actually serves (no nowcast in the public tier). Going further back or
+// into the future would just show empty frames.
 export const RANGE_MODES = {
-  radar:    { hoursBefore: 12, hoursAfter: 2,   daysShown: 7,  label: 'Radar focus (12h passé + 2h futur)', shortLabel: 'Radar focus' },
-  week:     { hoursBefore: 0,  hoursAfter: 168, daysShown: 7,  label: 'Prévision 7 prochains jours',         shortLabel: '7 jours' },
-  extended: { hoursBefore: 0,  hoursAfter: 336, daysShown: 14, label: 'Prévision 14 prochains jours',        shortLabel: '14 jours' }
+  radar:    { hoursBefore: 2,  hoursAfter: 0,   daysShown: 7,  label: 'Radar pluie (2h passé)',          shortLabel: 'Radar 2h' },
+  week:     { hoursBefore: 0,  hoursAfter: 168, daysShown: 7,  label: 'Prévision 7 prochains jours',     shortLabel: '7 jours' },
+  extended: { hoursBefore: 0,  hoursAfter: 336, daysShown: 14, label: 'Prévision 14 prochains jours',    shortLabel: '14 jours' }
 };
 
 // Stop density along a route — controls the number of weather marker stops.

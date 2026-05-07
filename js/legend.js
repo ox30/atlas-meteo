@@ -2,8 +2,8 @@ import { state, emit } from './state.js';
 import { MODELS, RANGE_MODES, STOP_DENSITIES } from './config.js';
 
 const LAYER_DEFS = [
-  { key: 'radar', name: 'Radar pluie', desc: 'RainViewer · 12h passé + 2h futur' },
-  { key: 'clouds', name: 'Nuages (satellite)', desc: 'Imagerie infrarouge animée' },
+  { key: 'radar', name: 'Radar pluie', desc: 'RainViewer · 2h passé · zoom max ≈ 7' },
+  { key: 'clouds', name: 'Couverture nuageuse', desc: 'OpenWeatherMap · état actuel' },
   { key: 'terminator', name: 'Terminator solaire', desc: 'Ligne jour/nuit en mouvement' },
   { key: 'sun', name: 'Cycle jour / nuit', desc: 'Teinte UI selon position du soleil' },
   { key: 'stops', name: 'Étapes prévues', desc: 'Pictogrammes aux jalons (itinéraire)' }
@@ -17,7 +17,7 @@ const CHART_DEFS = [
 ];
 
 const RANGE_RADIO_DEFS = [
-  { key: 'radar',    label: 'Radar focus (12h passé + 2h futur)' },
+  { key: 'radar',    label: 'Radar pluie (2h passé)' },
   { key: 'week',     label: '7 prochains jours' },
   { key: 'extended', label: '14 prochains jours' }
 ];

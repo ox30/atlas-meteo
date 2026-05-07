@@ -8,6 +8,8 @@ import { attachDateTimePicker } from './datetime-picker.js';
 import { initMapPicker } from './map-picker.js';
 import { initScrubberHover, clearScrubberContent } from './scrubber.js';
 import { initChart, renderChart } from './chart.js';
+import { setCloudsEnabled, initCloudsFromState } from './clouds.js';
+import { updateLayersForTime } from './rainviewer.js';
 import * as CityMode from './city-mode.js';
 import * as RouteMode from './route-mode.js';
 
@@ -31,6 +33,19 @@ RouteMode.init();
 // Build legend
 buildLegend();
 initLegendToggle();
+
+// Reactive layer toggles for layers that don't otherwise wait for a scrubber
+// tick. Without this, toggling the layer while paused only takes effect on
+// the next tick (so e.g. a fresh "off" stays visible until the user moves
+// the timeline). We forward the toggle to the matching subsystem directly.
+initCloudsFromState();
+on('layerToggle', evt => {
+  if (evt.layer === 'clouds') {
+    setCloudsEnabled(evt.on);
+  } else if (evt.layer === 'radar' && TimeCtl.current) {
+    updateLayersForTime(TimeCtl.current);
+  }
+});
 
 // Tab switching
 document.querySelectorAll('.tab').forEach(t => {
