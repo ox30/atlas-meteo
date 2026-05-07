@@ -22,23 +22,23 @@
 //      we give up to avoid infinite loops on hourly/daily limits.
 // =============================================================================
 
-import { API } from './config.js';
+import { HEATMAP_FORECAST_URL } from './config.js';
 
 // -------- Grid definitions --------------------------------------------------
 
-// Coarse continental grid. 4° step ≈ 440 km. With bilinear interpolation
-// the rendered output still looks smooth — we lose detail of small weather
-// features but keep the broad pattern of fronts, lows, and bands.
+// Coarse continental grid. 1° step ≈ 110 km. Bumped from 4° to 1° in v2 now
+// that requests go through the Worker's edge cache — the cache mutualises
+// the cost across users, so we can afford the higher resolution.
 const EUROPE_GRID = {
   bbox: { latMin: 35, latMax: 70, lonMin: -12, lonMax: 32 },
-  step: 4.0,    // 9 × 12 = 108 points (clipped by bbox to ~99)
+  step: 1.0,    // 36 × 45 = ~1500 points
 };
 
-// Fine grid over Switzerland + 100 km buffer. 0.5° ≈ 55 km — coarse enough
-// to stay under quota, fine enough to capture local features in the Alps.
+// Fine grid over Switzerland + 100 km buffer. 0.2° ≈ 22 km. Bumped from 0.5°
+// to 0.2° for the same reason as above.
 const SWISS_GRID = {
   bbox: { latMin: 45.0, latMax: 48.2, lonMin: 5.0, lonMax: 11.5 },
-  step: 0.5,    // 7 × 13 = 91 points
+  step: 0.2,    // 17 × 33 = ~560 points
 };
 
 const MODEL = 'best_match';     // ICON-CH1 in Switzerland, ECMWF/GFS elsewhere
@@ -198,7 +198,10 @@ function buildUrl(batch, variable, dayDate) {
   const today = new Date(); today.setUTCHours(0, 0, 0, 0);
   const diff = Math.round((today.getTime() - dayDate.getTime()) / 86_400_000);
   if (diff > 0) params.set('past_days', String(diff));
-  return `${API.forecast}?${params}`;
+  // Heatmap requests go via the Cloudflare Worker proxy so that all users
+  // share the same edge cache. The basic weather queries elsewhere in the
+  // app still call api.open-meteo.com directly.
+  return `${HEATMAP_FORECAST_URL}?${params}`;
 }
 
 async function fetchGrid(grid, variable, dayDate) {

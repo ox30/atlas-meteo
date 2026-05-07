@@ -7,11 +7,16 @@ export const API = {
   rainviewer: 'https://api.rainviewer.com/public/weather-maps.json'
 };
 
-// Cloudflare Worker proxy for tile providers that need a key
-// (currently OpenWeatherMap clouds_new). Set up in /worker, see README-deploy.md.
-// If you ever fork the project, replace this with your own Worker URL.
+// Cloudflare Worker proxy.
+// - OWM tiles: hides the OpenWeatherMap key.
+// - Open-Meteo forecast: shared edge cache for the heatmap layers only.
+//   The basic weather queries (city / route / geocoding) keep going DIRECT
+//   to api.open-meteo.com from the browser so a Worker rate-limit doesn't
+//   break the rest of the app — see worker/worker.js for the architecture.
+// If you ever fork the project, replace the base URL with your own Worker.
 export const TILES_BASE = 'https://atlas-meteo-tiles.flrnsndz.workers.dev';
 export const CLOUD_TILES_URL = `${TILES_BASE}/owm/clouds_new/{z}/{x}/{y}.png`;
+export const HEATMAP_FORECAST_URL = `${TILES_BASE}/openmeteo/forecast`;
 
 // WMO weather codes -> icon + french label
 export const WMO = {
