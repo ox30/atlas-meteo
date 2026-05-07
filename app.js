@@ -1,0 +1,114 @@
+// Atlas Météo — Entry point
+
+import { state, on } from './state.js';
+import { TimeCtl } from './time-ctl.js';
+import { getMap, invalidateSizeSoon } from './map.js';
+import { buildLegend, initLegendToggle } from './legend.js';
+import { attachDateTimePicker } from './datetime-picker.js';
+import { initMapPicker } from './map-picker.js';
+import { initScrubberHover, clearScrubberContent } from './scrubber.js';
+import { initChart, renderChart } from './chart.js';
+import { setCloudsEnabled, initCloudsFromState } from './clouds.js';
+import { updateLayersForTime } from './rainviewer.js';
+import { initHeatmaps } from './heatmap.js';
+import * as CityMode from './city-mode.js';
+import * as RouteMode from './route-mode.js';
+
+// Init Leaflet
+getMap();
+
+// Init shared subsystems
+initMapPicker();
+initScrubberHover();
+initChart();
+
+// Custom datetime picker — must be wired BEFORE RouteMode.init() so the
+// setDefaultTime() call inside RouteMode.init() hits our .value setter and
+// the display updates correctly.
+attachDateTimePicker('route-time');
+
+// Init both modes
+CityMode.init();
+RouteMode.init();
+
+// Build legend
+buildLegend();
+initLegendToggle();
+
+// Reactive layer toggles for layers that don't otherwise wait for a scrubber
+// tick. Without this, toggling the layer while paused only takes effect on
+// the next tick (so e.g. a fresh "off" stays visible until the user moves
+// the timeline). We forward the toggle to the matching subsystem directly.
+initCloudsFromState();
+initHeatmaps();
+on('layerToggle', evt => {
+  if (evt.layer === 'clouds') {
+    setCloudsEnabled(evt.on);
+  } else if (evt.layer === 'radar' && TimeCtl.current) {
+    updateLayersForTime(TimeCtl.current);
+  }
+  // precip_model / clouds_model are handled inside heatmap.js via its own
+  // layerToggle listener — no need to dispatch them here.
+});
+
+// Tab switching
+document.querySelectorAll('.tab').forEach(t => {
+  t.addEventListener('click', () => {
+    const newMode = t.dataset.mode;
+    if (newMode === state.mode) return;
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    document.querySelectorAll('.section-mode').forEach(s => s.classList.remove('active'));
+    document.getElementById('mode-' + newMode).classList.add('active');
+    if (state.mode === 'city') CityMode.deactivate();
+    else RouteMode.deactivate();
+    state.mode = newMode;
+    buildLegend();
+    if (newMode === 'city') CityMode.activate();
+    else RouteMode.activate();
+    invalidateSizeSoon(150);
+  });
+});
+
+// Scrubber controls
+document.getElementById('btn-play').addEventListener('click', () => TimeCtl.toggle());
+document.getElementById('btn-rewind').addEventListener('click', () => TimeCtl.reset());
+document.getElementById('speed-select').addEventListener('change', e => TimeCtl.setSpeed(parseInt(e.target.value)));
+document.getElementById('timeline-bar').addEventListener('click', e => {
+  if (!TimeCtl.isInitialized()) return;
+  // Don't trigger seek when clicking on a stop mark or sun mark (they have their own handler)
+  if (e.target.closest('.tl-stop-mark, .tl-sun-mark, .tl-pause-zone, .tl-pause-icon')) return;
+  const rect = e.currentTarget.getBoundingClientRect();
+  const p = (e.clientX - rect.left) / rect.width;
+  TimeCtl.pause();
+  TimeCtl.setProgress(p);
+});
+
+on('playStateChange', ({ playing }) => {
+  document.getElementById('btn-play').textContent = playing ? '⏸' : '▶';
+});
+
+// Re-render chart whenever it changes
+on('chartChange', () => renderChart());
+
+// Lot C — "Détails →" button on stop popups: switch to city mode for that location
+on('viewStopDetails', async ({ name, lat, lon, time }) => {
+  const newCity = { name, latitude: lat, longitude: lon, country: '' };
+  if (state.mode !== 'city') {
+    // Tab switch (DOM only). We set a flag so CityMode.activate() skips its
+    // default loadCity(state.city) — we'll trigger our own load below.
+    state.pendingExternalCityLoad = true;
+    document.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x.dataset.mode === 'city'));
+    document.querySelectorAll('.section-mode').forEach(s => s.classList.remove('active'));
+    document.getElementById('mode-city').classList.add('active');
+    RouteMode.deactivate();
+    state.mode = 'city';
+    buildLegend();
+    CityMode.activate();        // will not auto-load thanks to the flag
+    invalidateSizeSoon(150);
+  }
+  await CityMode.loadCityFromExternal(newCity, time);
+});
+
+// Start in city mode
+CityMode.activate();
