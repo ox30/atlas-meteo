@@ -10,6 +10,7 @@ import { initScrubberHover, clearScrubberContent } from './scrubber.js';
 import { initChart, renderChart } from './chart.js';
 import { setCloudsEnabled, initCloudsFromState } from './clouds.js';
 import { updateLayersForTime } from './rainviewer.js';
+import { initHeatmaps } from './heatmap.js';
 import * as CityMode from './city-mode.js';
 import * as RouteMode from './route-mode.js';
 
@@ -39,12 +40,15 @@ initLegendToggle();
 // the next tick (so e.g. a fresh "off" stays visible until the user moves
 // the timeline). We forward the toggle to the matching subsystem directly.
 initCloudsFromState();
+initHeatmaps();
 on('layerToggle', evt => {
   if (evt.layer === 'clouds') {
     setCloudsEnabled(evt.on);
   } else if (evt.layer === 'radar' && TimeCtl.current) {
     updateLayersForTime(TimeCtl.current);
   }
+  // precip_model / clouds_model are handled inside heatmap.js via its own
+  // layerToggle listener — no need to dispatch them here.
 });
 
 // Tab switching

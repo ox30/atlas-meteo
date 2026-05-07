@@ -15,7 +15,13 @@ export const state = {
   routeWeather: null,
   routeStopNames: null,
   currentModel: 'best_match',
-  layers: { radar: true, clouds: true, terminator: true, sun: true, stops: true },
+  layers: {
+    radar: true, clouds: true, terminator: true, sun: true, stops: true,
+    // Heatmap layers (Open-Meteo, animated on the timeline). Off by default
+    // because they trigger network fetches on activation.
+    precip_model: false,
+    clouds_model: false,
+  },
   rangeMode: 'week',
   currentChart: 'none',
   routeSidebarMode: 'edit',
