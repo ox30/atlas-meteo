@@ -10,7 +10,7 @@ export const API = {
 // Cloudflare Worker proxy for tile providers that need a key
 // (currently OpenWeatherMap clouds_new). Set up in /worker, see README-deploy.md.
 // If you ever fork the project, replace this with your own Worker URL.
-export const TILES_BASE = 'https://atlas-meteo-tiles.<YOUR_CF_USERNAME>.workers.dev';
+export const TILES_BASE = 'https://atlas-meteo-tiles.flrnsndz.workers.dev';
 export const CLOUD_TILES_URL = `${TILES_BASE}/owm/clouds_new/{z}/{x}/{y}.png`;
 
 // WMO weather codes -> icon + french label
