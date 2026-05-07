@@ -3,7 +3,7 @@ import { MODELS, RANGE_MODES, STOP_DENSITIES } from './config.js';
 
 const LAYER_DEFS = [
   { key: 'radar', name: 'Radar pluie', desc: 'RainViewer · 2h passé · zoom max ≈ 7' },
-  { key: 'clouds', name: 'Couverture nuageuse', desc: 'OpenWeatherMap · état actuel' },
+  { key: 'clouds', name: 'Couverture nuageuse', desc: 'OpenWeatherMap · instantané (non animé)' },
   { key: 'terminator', name: 'Terminator solaire', desc: 'Ligne jour/nuit en mouvement' },
   { key: 'sun', name: 'Cycle jour / nuit', desc: 'Teinte UI selon position du soleil' },
   { key: 'stops', name: 'Étapes prévues', desc: 'Pictogrammes aux jalons (itinéraire)' }
