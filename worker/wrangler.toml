@@ -1,0 +1,10 @@
+name = "atlas-meteo-tiles"
+main = "worker.js"
+compatibility_date = "2025-05-01"
+
+# Optional non-secret variables. The OWM_API_KEY is set as a *secret* via
+# `wrangler secret put OWM_API_KEY` or in the Cloudflare dashboard
+# (Workers & Pages → atlas-meteo-tiles → Settings → Variables → Secrets).
+[vars]
+ALLOWED_ORIGIN    = "*"      # later: lock to "https://ox30.github.io"
+CACHE_TTL_SECONDS = "1800"   # 30 minutes
