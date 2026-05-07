@@ -24,6 +24,12 @@
 const TILE_RES = 64;
 const TILE_OUT = 256;
 
+// Smooth-blend width between the Swiss fine grid and the Europe coarse grid.
+// At points within FEATHER_DEG (degrees) of the Swiss bbox edges, we linearly
+// interpolate between the two grids' values. Hides the otherwise visible
+// "fine-detail rectangle" of the Swiss zone.
+const FEATHER_DEG = 0.4;
+
 // -------- Color palettes ----------------------------------------------------
 
 // Precipitation: mm/h → [r, g, b, a]. Stops match standard meteo gradients
@@ -169,10 +175,30 @@ export const HeatmapLayer = L.GridLayer.extend({
       for (let pxIdx = 0; pxIdx < TILE_RES; pxIdx++) {
         const lon = west + (pxIdx / (TILE_RES - 1)) * (east - west);
 
-        // Switzerland fine grid first, then fall back to Europe coarse grid
-        let v = interpAt(dayData.swiss, lat, lon, hour);
-        if (v === null) v = interpAt(dayData.europe, lat, lon, hour);
-        if (v === null) continue;
+        // Sample both grids and feather Swiss into Europe near the bbox
+        // edges so the resolution change isn't visible as a hard rectangle.
+        // - Inside the Swiss bbox, deep inside (>FEATHER from edges): pure Swiss
+        // - Inside but within FEATHER of an edge: linearly blended
+        // - At the edge or outside: pure Europe
+        const swissV  = interpAt(dayData.swiss,  lat, lon, hour);
+        const europeV = interpAt(dayData.europe, lat, lon, hour);
+
+        let v;
+        if (swissV === null && europeV === null) {
+          continue;
+        } else if (swissV === null) {
+          v = europeV;
+        } else if (europeV === null) {
+          v = swissV;
+        } else {
+          const sb = dayData.swiss.bbox;
+          const dEdge = Math.min(
+            lat - sb.latMin, sb.latMax - lat,
+            lon - sb.lonMin, sb.lonMax - lon
+          );
+          const wSwiss = Math.max(0, Math.min(1, dEdge / FEATHER_DEG));
+          v = wSwiss * swissV + (1 - wSwiss) * europeV;
+        }
 
         const [r, g, b, a] = this._palette(v);
         if (a === 0) continue;

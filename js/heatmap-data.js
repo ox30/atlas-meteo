@@ -26,16 +26,16 @@ import { HEATMAP_FORECAST_URL } from './config.js';
 
 // -------- Grid definitions --------------------------------------------------
 
-// Coarse continental grid. 1° step ≈ 110 km. Bumped from 4° to 1° in v2 now
-// that requests go through the Worker's edge cache — the cache mutualises
-// the cost across users, so we can afford the higher resolution.
+// Coarse continental grid. 0.75° step ≈ 80 km (was 1° in iter 2). Bumped
+// because the visual difference with the Swiss fine grid was too sharp; 0.75°
+// gives ~80% more points (~2800 vs 1500) while staying sustainable thanks to
+// the Worker's edge cache mutualising fetch cost across users.
 const EUROPE_GRID = {
   bbox: { latMin: 35, latMax: 70, lonMin: -12, lonMax: 32 },
-  step: 1.0,    // 36 × 45 = ~1500 points
+  step: 0.75,   // 47 × 59 = ~2770 points
 };
 
-// Fine grid over Switzerland + 100 km buffer. 0.2° ≈ 22 km. Bumped from 0.5°
-// to 0.2° for the same reason as above.
+// Fine grid over Switzerland + 100 km buffer. Unchanged at 0.2°.
 const SWISS_GRID = {
   bbox: { latMin: 45.0, latMax: 48.2, lonMin: 5.0, lonMax: 11.5 },
   step: 0.2,    // 17 × 33 = ~560 points
